@@ -1,0 +1,231 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --editor-bg: #0f172a;
+  --sidebar-bg: #020617;
+  --chat-bg: #1e293b;
+  --border-color: #334155;
+  --accent: #14b8a6;
+  --accent-hover: #2dd4bf;
+  --text-primary: #f1f5f9;
+  --text-secondary: #94a3b8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--editor-bg);
+  color: var(--text-primary);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* CodeMirror overrides for dark theme */
+.cm-editor {
+  height: 100%;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  background-color: var(--editor-bg) !important;
+}
+
+.cm-editor .cm-gutters {
+  background-color: var(--sidebar-bg) !important;
+  border-right: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.cm-editor .cm-activeLineGutter {
+  background-color: rgba(20, 184, 166, 0.1) !important;
+}
+
+.cm-editor .cm-activeLine {
+  background-color: rgba(20, 184, 166, 0.05) !important;
+}
+
+.cm-editor .cm-selectionBackground {
+  background-color: rgba(20, 184, 166, 0.3) !important;
+}
+
+.cm-editor.cm-focused .cm-selectionBackground {
+  background-color: rgba(20, 184, 166, 0.4) !important;
+}
+
+.cm-editor .cm-cursor {
+  border-left-color: var(--accent) !important;
+}
+
+.cm-editor .cm-content {
+  caret-color: var(--accent);
+}
+
+/* Markdown styling in editor */
+.cm-header-1 { font-size: 1.5em; font-weight: 700; color: #f1f5f9; }
+.cm-header-2 { font-size: 1.3em; font-weight: 600; color: #e2e8f0; }
+.cm-header-3 { font-size: 1.15em; font-weight: 600; color: #cbd5e1; }
+.cm-header-4 { font-size: 1.05em; font-weight: 500; color: #cbd5e1; }
+.cm-header-5, .cm-header-6 { font-weight: 500; color: #94a3b8; }
+
+.cm-link { color: var(--accent); text-decoration: underline; }
+.cm-url { color: #64748b; }
+.cm-strong { font-weight: 700; color: #f1f5f9; }
+.cm-em { font-style: italic; color: #e2e8f0; }
+.cm-strikethrough { text-decoration: line-through; color: #64748b; }
+.cm-quote { color: #94a3b8; border-left: 3px solid var(--accent); padding-left: 10px; }
+
+/* Selection highlight animation */
+@keyframes highlight-fade {
+  0% { background-color: rgba(20, 184, 166, 0.5); }
+  100% { background-color: transparent; }
+}
+
+.highlight-change {
+  animation: highlight-fade 1.5s ease-out;
+}
+
+/* File tree styles */
+.file-item {
+  transition: background-color 0.15s ease;
+}
+
+.file-item:hover {
+  background-color: rgba(20, 184, 166, 0.1);
+}
+
+.file-item.active {
+  background-color: rgba(20, 184, 166, 0.2);
+  border-left: 2px solid var(--accent);
+}
+
+/* Chat message styles */
+.chat-message {
+  animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Resize handle */
+.resize-handle {
+  position: absolute;
+  background: transparent;
+  transition: background-color 0.2s ease;
+  z-index: 10;
+}
+
+.resize-handle:hover {
+  background: var(--accent);
+}
+
+.resize-handle-vertical {
+  width: 4px;
+  cursor: col-resize;
+  top: 0;
+  bottom: 0;
+}
+
+.resize-handle-horizontal {
+  height: 4px;
+  cursor: row-resize;
+  left: 0;
+  right: 0;
+}
+
+/* Button styles */
+.btn {
+  @apply px-3 py-1.5 rounded-md font-medium text-sm transition-colors duration-150;
+}
+
+.btn-primary {
+  @apply bg-accent text-white hover:bg-accent-hover;
+}
+
+.btn-secondary {
+  @apply bg-border text-text-primary hover:bg-opacity-80;
+}
+
+.btn-ghost {
+  @apply bg-transparent text-text-secondary hover:bg-border hover:text-text-primary;
+}
+
+/* Input styles */
+.input {
+  @apply w-full px-3 py-2 bg-sidebar-bg border border-border rounded-md text-text-primary placeholder-text-secondary focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent;
+}
+
+/* Markdown preview styles */
+.markdown-preview {
+  @apply text-text-primary;
+}
+
+.markdown-preview h1 { @apply text-3xl font-bold mb-4 mt-6 text-text-primary; }
+.markdown-preview h2 { @apply text-2xl font-semibold mb-3 mt-5 text-text-primary; }
+.markdown-preview h3 { @apply text-xl font-semibold mb-2 mt-4 text-text-primary; }
+.markdown-preview h4 { @apply text-lg font-medium mb-2 mt-3 text-text-primary; }
+.markdown-preview p { @apply mb-4 leading-relaxed; }
+.markdown-preview ul, .markdown-preview ol { @apply mb-4 pl-6; }
+.markdown-preview li { @apply mb-1; }
+.markdown-preview code { @apply bg-sidebar-bg px-1.5 py-0.5 rounded text-sm font-mono text-accent; }
+.markdown-preview pre { @apply bg-sidebar-bg p-4 rounded-lg mb-4 overflow-x-auto; }
+.markdown-preview pre code { @apply bg-transparent p-0; }
+.markdown-preview blockquote { @apply border-l-4 border-accent pl-4 italic text-text-secondary my-4; }
+.markdown-preview a { @apply text-accent hover:underline; }
+.markdown-preview hr { @apply border-border my-6; }
+.markdown-preview table { @apply w-full border-collapse mb-4; }
+.markdown-preview th, .markdown-preview td { @apply border border-border px-3 py-2 text-left; }
+.markdown-preview th { @apply bg-sidebar-bg font-semibold; }
+
+/* Loading spinner */
+.spinner {
+  border: 2px solid var(--border-color);
+  border-top: 2px solid var(--accent);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Toast styles */
+.toast {
+  @apply fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 animate-fade-in;
+}
+
+.toast-success { @apply bg-green-600 text-white; }
+.toast-error { @apply bg-red-600 text-white; }
+.toast-info { @apply bg-accent text-white; }
+
