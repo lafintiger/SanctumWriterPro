@@ -7,13 +7,14 @@ import {
   PanelLeft,
   MessageSquare,
   Eye,
-  Settings,
+  Settings as SettingsIcon,
   Wifi,
   WifiOff,
   ChevronDown
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useSettingsStore } from '@/lib/store/useSettingsStore';
 
 export function Header() {
   const {
@@ -33,6 +34,8 @@ export function Header() {
     setSidebarWidth,
   } = useAppStore();
 
+  const { toggleSettings, writingPreset, contextLength, contextUsed } = useSettingsStore();
+  
   const [providerStatus, setProviderStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [showProviderMenu, setShowProviderMenu] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -212,11 +215,21 @@ export function Header() {
         </button>
 
         <button
+          onClick={toggleSettings}
           className="p-1.5 hover:bg-border rounded text-text-secondary hover:text-text-primary"
           title="Settings"
         >
-          <Settings className="w-5 h-5" />
+          <SettingsIcon className="w-5 h-5" />
         </button>
+        
+        {/* Context usage indicator */}
+        <div className="flex items-center gap-1.5 ml-2 px-2 py-1 bg-editor-bg rounded text-xs">
+          <span className="text-text-secondary capitalize">{writingPreset}</span>
+          <span className="text-border">|</span>
+          <span className="text-text-secondary">
+            {contextUsed > 0 ? `${Math.round(contextUsed / 1000)}k` : '0'}/{Math.round(contextLength / 1000)}k
+          </span>
+        </div>
       </div>
 
       {/* Click outside handler */}

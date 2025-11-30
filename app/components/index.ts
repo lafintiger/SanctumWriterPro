@@ -4,4 +4,5 @@ export { Chat } from './Chat/Chat';
 export { Header } from './Header/Header';
 export { Preview } from './Preview/Preview';
 export { Toast } from './Toast/Toast';
+export { Settings } from './Settings/Settings';
 

@@ -4,6 +4,23 @@ import { documentTools, formatToolsForOllama, formatToolsForLMStudio } from './t
 const OLLAMA_URL = 'http://localhost:11434';
 const LMSTUDIO_URL = 'http://localhost:1234';
 
+export interface LLMOptions {
+  temperature?: number;
+  topP?: number;
+  topK?: number;
+  repeatPenalty?: number;
+  contextLength?: number;
+}
+
+// Rough token estimation (4 chars per token on average)
+export function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+export function estimateMessagesTokens(messages: LLMMessage[]): number {
+  return messages.reduce((total, msg) => total + estimateTokens(msg.content), 0);
+}
+
 export async function getAvailableModels(provider: LLMProviderType): Promise<Array<{ id: string; name: string }>> {
   try {
     if (provider === 'ollama') {
@@ -44,13 +61,14 @@ export async function streamChat(
   model: string,
   messages: LLMMessage[],
   callbacks: StreamCallbacks,
-  useTools: boolean = true
+  useTools: boolean = true,
+  options: LLMOptions = {}
 ): Promise<void> {
   try {
     if (provider === 'ollama') {
-      await streamOllamaChat(model, messages, callbacks, useTools);
+      await streamOllamaChat(model, messages, callbacks, useTools, options);
     } else {
-      await streamLMStudioChat(model, messages, callbacks, useTools);
+      await streamLMStudioChat(model, messages, callbacks, useTools, options);
     }
   } catch (error) {
     callbacks.onError(error instanceof Error ? error : new Error('Unknown error'));
@@ -61,15 +79,16 @@ async function streamOllamaChat(
   model: string,
   messages: LLMMessage[],
   callbacks: StreamCallbacks,
-  useTools: boolean
+  useTools: boolean,
+  options: LLMOptions = {}
 ): Promise<void> {
   // Try with tools first, fall back to without if model doesn't support it
-  let response = await tryOllamaRequest(model, messages, useTools);
+  let response = await tryOllamaRequest(model, messages, useTools, options);
   
   // If 400 error and we were using tools, retry without tools
   if (!response.ok && response.status === 400 && useTools) {
     console.log('Model does not support tools, retrying without...');
-    response = await tryOllamaRequest(model, messages, false);
+    response = await tryOllamaRequest(model, messages, false, options);
   }
 
   if (!response.ok) {
@@ -125,12 +144,20 @@ async function streamOllamaChat(
 async function tryOllamaRequest(
   model: string,
   messages: LLMMessage[],
-  useTools: boolean
+  useTools: boolean,
+  options: LLMOptions = {}
 ): Promise<Response> {
   const body: Record<string, unknown> = {
     model,
     messages,
     stream: true,
+    options: {
+      temperature: options.temperature ?? 0.7,
+      top_p: options.topP ?? 0.9,
+      top_k: options.topK ?? 40,
+      repeat_penalty: options.repeatPenalty ?? 1.1,
+      num_ctx: options.contextLength ?? 4096,
+    },
   };
 
   if (useTools) {
@@ -148,12 +175,17 @@ async function streamLMStudioChat(
   model: string,
   messages: LLMMessage[],
   callbacks: StreamCallbacks,
-  useTools: boolean
+  useTools: boolean,
+  options: LLMOptions = {}
 ): Promise<void> {
   const body: Record<string, unknown> = {
     model,
     messages,
     stream: true,
+    temperature: options.temperature ?? 0.7,
+    top_p: options.topP ?? 0.9,
+    max_tokens: options.contextLength ?? 4096,
+    frequency_penalty: (options.repeatPenalty ?? 1.1) - 1, // Convert to OpenAI format
   };
 
   // LM Studio may not support tools, so we'll try without them by default

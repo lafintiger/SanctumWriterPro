@@ -5,7 +5,8 @@ import { Send, Bot, User, Loader2, CheckCircle, XCircle, Wand2 } from 'lucide-re
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useChatStore } from '@/lib/store/useChatStore';
-import { streamChat } from '@/lib/llm/client';
+import { useSettingsStore } from '@/lib/store/useSettingsStore';
+import { streamChat, estimateMessagesTokens, LLMOptions } from '@/lib/llm/client';
 import { getSystemPrompt } from '@/lib/llm/tools';
 import { parseToolCallToOperation, executeOperation } from '@/lib/editor/operations';
 import { ChatMessage, LLMMessage } from '@/types';
@@ -86,6 +87,14 @@ export function Chat({ editorView }: ChatProps) {
     updateToolCallResult,
     setIsStreaming,
   } = useChatStore();
+  const { 
+    temperature, 
+    topP, 
+    topK, 
+    repeatPenalty, 
+    contextLength,
+    setContextUsed,
+  } = useSettingsStore();
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -140,6 +149,19 @@ export function Chat({ editorView }: ChatProps) {
       { role: 'user', content: userMessage },
     ];
 
+    // Track context usage
+    const contextUsed = estimateMessagesTokens(llmMessages);
+    setContextUsed(contextUsed);
+
+    // Build options from settings
+    const llmOptions: LLMOptions = {
+      temperature,
+      topP,
+      topK,
+      repeatPenalty,
+      contextLength,
+    };
+
     try {
       await streamChat(
         provider,
@@ -187,7 +209,8 @@ export function Chat({ editorView }: ChatProps) {
             showToast(`Chat error: ${error.message}`, 'error');
           },
         },
-        true // Use tools
+        true, // Use tools
+        llmOptions
       );
     } catch (error) {
       updateMessage(assistantId, {
@@ -212,6 +235,12 @@ export function Chat({ editorView }: ChatProps) {
     updateMessage,
     setIsStreaming,
     showToast,
+    temperature,
+    topP,
+    topK,
+    repeatPenalty,
+    contextLength,
+    setContextUsed,
   ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {

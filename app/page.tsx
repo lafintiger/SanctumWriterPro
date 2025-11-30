@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { EditorView } from '@codemirror/view';
-import { Editor, FileTree, Chat, Header, Preview, Toast } from './components';
+import { Editor, FileTree, Chat, Header, Preview, Toast, Settings } from './components';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { cn } from '@/lib/utils';
 
@@ -134,6 +134,9 @@ export default function Home() {
 
       {/* Toast notifications */}
       <Toast />
+      
+      {/* Settings modal */}
+      <Settings />
     </div>
   );
 }
