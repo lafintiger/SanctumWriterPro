@@ -395,10 +395,23 @@ function ModelSettingsTab({
         <div className="mt-3 flex items-start gap-2 text-xs text-text-secondary">
           <Info className="w-4 h-4 flex-shrink-0 mt-0.5" />
           <p>
-            Your RTX 5090 can handle up to {hardwareTierMax.toLocaleString()} tokens! 
-            Set this based on your needs. Higher = more document context, but may slow generation.
+            Higher context = more document content but slower generation and more VRAM usage.
           </p>
         </div>
+        
+        {contextLength > 32768 && (
+          <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 rounded text-xs text-red-400">
+            ⚠️ <strong>Warning:</strong> Context above 32k may cause GPU memory issues and very slow generation. 
+            Recommended: 8k-16k for most writing, 32k max for long documents.
+          </div>
+        )}
+        
+        {contextLength > maxContextLength && (
+          <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+            💡 You&apos;ve set context higher than the model&apos;s native {maxContextLength.toLocaleString()} limit. 
+            This works but may affect quality. Consider a model with native high-context support.
+          </div>
+        )}
       </div>
     </div>
   );
