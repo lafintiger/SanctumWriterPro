@@ -96,37 +96,44 @@ export const GPU_PRESETS: GPUPreset[] = [
 // Optimal settings based on hardware tier for MAXIMUM writing performance
 export interface OptimalSettings {
   contextLength: number;
+  maxContextPotential: number; // What this tier CAN handle
   suggestedModelSize: string;
   description: string;
 }
 
-export function getOptimalSettingsForTier(tier: 'low' | 'medium' | 'high' | 'ultra' | 'unknown', maxContext: number): OptimalSettings {
+export function getOptimalSettingsForTier(tier: 'low' | 'medium' | 'high' | 'ultra' | 'unknown', modelMaxContext?: number): OptimalSettings {
+  // These are the TIER capabilities - what your hardware can handle
+  // The actual context used may be limited by the model you choose
   switch (tier) {
     case 'ultra':
       return {
-        contextLength: Math.min(32768, maxContext), // Max out context for long documents
+        contextLength: modelMaxContext ? Math.min(131072, modelMaxContext) : 32768,
+        maxContextPotential: 131072, // 128k - ULTRA tier can handle massive context
         suggestedModelSize: '70B+ or multiple 13B models',
-        description: 'Maximum power! Use largest models with full context. Perfect for long-form writing and complex analysis.',
+        description: 'Maximum power! Use largest models (Llama 70B, Qwen 72B, Mixtral 8x22B) with full context. Perfect for long-form writing, novel chapters, and complex analysis.',
       };
     case 'high':
       return {
-        contextLength: Math.min(16384, maxContext),
+        contextLength: modelMaxContext ? Math.min(32768, modelMaxContext) : 16384,
+        maxContextPotential: 32768, // 32k context
         suggestedModelSize: '13B-34B models',
-        description: 'Excellent for serious writing. Large models with generous context for detailed work.',
+        description: 'Excellent for serious writing. Run Llama 13B, Qwen 14B, Mixtral 8x7B with generous context.',
       };
     case 'medium':
       return {
-        contextLength: Math.min(8192, maxContext),
+        contextLength: modelMaxContext ? Math.min(16384, modelMaxContext) : 8192,
+        maxContextPotential: 16384, // 16k context
         suggestedModelSize: '7B-13B models',
-        description: 'Good balance of quality and speed. Suitable for most writing tasks.',
+        description: 'Good balance of quality and speed. Llama 7B, Mistral 7B, Qwen 7B work great.',
       };
     case 'low':
     case 'unknown':
     default:
       return {
-        contextLength: Math.min(4096, maxContext),
+        contextLength: modelMaxContext ? Math.min(8192, modelMaxContext) : 4096,
+        maxContextPotential: 8192, // 8k context
         suggestedModelSize: '3B-7B models',
-        description: 'Conservative settings for limited hardware. Focus on smaller, efficient models.',
+        description: 'Focus on efficient models like Phi-3, Gemma 2B, Llama 3.2 1B/3B.',
       };
   }
 }
@@ -380,39 +387,49 @@ export const useSettingsStore = create<SettingsState>()(
           },
         });
         
-        // Auto-optimize after selection
-        const { currentModelInfo, maxContextLength } = get();
-        const optimal = getOptimalSettingsForTier(vramTier, maxContextLength);
+        // Set context based on tier's full potential (not limited by current model)
+        const optimal = getOptimalSettingsForTier(vramTier);
+        const { currentModelInfo } = get();
         
-        if (currentModelInfo) {
-          const suggestedContext = suggestContextLength(
-            gpu.vramMB,
-            currentModelInfo.size,
-            currentModelInfo.contextLength
-          );
+        if (currentModelInfo && currentModelInfo.contextLength > 0) {
+          // If model has a limit, use the minimum of tier potential and model limit
+          const suggestedContext = Math.min(optimal.maxContextPotential, currentModelInfo.contextLength);
           set({ contextLength: suggestedContext });
         } else {
+          // No model info - use tier's default
           set({ contextLength: optimal.contextLength });
         }
       },
       
       optimizeForWriting: () => {
         const { hardwareInfo, maxContextLength } = get();
-        const optimal = getOptimalSettingsForTier(hardwareInfo.vramTier, maxContextLength);
+        const optimal = getOptimalSettingsForTier(hardwareInfo.vramTier);
         
-        // Set context to optimal for this hardware tier
-        set({ contextLength: optimal.contextLength });
+        // Set context to the maximum available (tier potential or model limit, whichever is lower)
+        const optimalContext = maxContextLength > 0 
+          ? Math.min(optimal.maxContextPotential, maxContextLength)
+          : optimal.contextLength;
+        
+        set({ contextLength: optimalContext });
         
         // For writing, we want a balanced preset - not too conservative, not too wild
-        // "Creative" is good for most writing, with slight adjustments for ULTRA tier
+        // "Creative" is good for most writing, with adjustments for tier
         if (hardwareInfo.vramTier === 'ultra') {
-          // For ultra tier, we can afford slightly higher settings for richer output
+          // For ultra tier, maximize settings for the richest output
           set({
             writingPreset: 'creative',
             temperature: 0.75,
             topP: 0.95,
             topK: 80,
             repeatPenalty: 1.05,
+          });
+        } else if (hardwareInfo.vramTier === 'high') {
+          set({
+            writingPreset: 'creative',
+            temperature: 0.72,
+            topP: 0.92,
+            topK: 70,
+            repeatPenalty: 1.08,
           });
         } else {
           set({

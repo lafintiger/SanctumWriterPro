@@ -552,16 +552,26 @@ function HardwareTab({ hardwareInfo, isDetecting, onDetect, onSelectGPU, onOptim
         <h3 className="font-medium text-text-primary mb-3">Recommended Settings</h3>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-text-secondary">Suggested Context</span>
-            <span className="text-accent font-mono">{optimalSettings.contextLength.toLocaleString()} tokens</span>
+            <span className="text-text-secondary">Your Tier&apos;s Max Context</span>
+            <span className="text-accent font-mono">{optimalSettings.maxContextPotential.toLocaleString()} tokens</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-text-secondary">Model Size</span>
+            <span className="text-text-secondary">Current Model Limit</span>
+            <span className="text-text-primary font-mono">{maxContextLength.toLocaleString()} tokens</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Suggested Models</span>
             <span className="text-text-primary">{optimalSettings.suggestedModelSize}</span>
           </div>
           <p className="text-xs text-text-secondary mt-2 p-2 bg-sidebar-bg rounded">
             {optimalSettings.description}
           </p>
+          {maxContextLength < optimalSettings.maxContextPotential && (
+            <div className="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-xs text-yellow-400">
+              💡 Your hardware can handle {optimalSettings.maxContextPotential.toLocaleString()} tokens! 
+              Choose a model with higher context (like Llama 3.1 128k, Qwen 2.5 32k, or Command-R 128k) to unlock your GPU&apos;s full potential.
+            </div>
+          )}
         </div>
       </div>
 
