@@ -11,9 +11,10 @@ import {
   Info,
   RefreshCw,
   Check,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSettingsStore, WRITING_PRESETS, WritingPreset } from '@/lib/store/useSettingsStore';
+import { useSettingsStore, WRITING_PRESETS, WritingPreset, GPU_PRESETS, getOptimalSettingsForTier } from '@/lib/store/useSettingsStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { detectGPU, formatVRAM, getVRAMTierDescription } from '@/lib/hardware/detect';
 
@@ -40,6 +41,8 @@ export function Settings() {
     setHardwareInfo,
     autoConfigureForModel,
     autoConfigureForHardware,
+    selectGPU,
+    optimizeForWriting,
   } = useSettingsStore();
 
   const { provider, model } = useAppStore();
@@ -67,9 +70,11 @@ export function Settings() {
       const gpuInfo = await detectGPU();
       const info = {
         vram: gpuInfo.vram,
-        vramTier: 'unknown' as const,
+        vramTier: 'unknown' as 'low' | 'medium' | 'high' | 'ultra' | 'unknown',
         renderer: gpuInfo.renderer,
         vendor: gpuInfo.vendor,
+        selectedGPU: null,
+        isManualSelection: false,
       };
       autoConfigureForHardware(info);
     } catch (error) {
@@ -175,6 +180,9 @@ export function Settings() {
               hardwareInfo={hardwareInfo}
               isDetecting={isDetectingHardware}
               onDetect={detectHardware}
+              onSelectGPU={selectGPU}
+              onOptimize={optimizeForWriting}
+              maxContextLength={maxContextLength}
             />
           )}
         </div>
@@ -385,46 +393,145 @@ function ModelSettingsTab({
 interface HardwareTabProps {
   hardwareInfo: {
     vram: number | null;
-    vramTier: 'low' | 'medium' | 'high' | 'unknown';
+    vramTier: 'low' | 'medium' | 'high' | 'ultra' | 'unknown';
     renderer: string;
     vendor: string;
+    selectedGPU: string | null;
+    isManualSelection: boolean;
   };
   isDetecting: boolean;
   onDetect: () => void;
+  onSelectGPU: (gpuId: string) => void;
+  onOptimize: () => void;
+  maxContextLength: number;
 }
 
-function HardwareTab({ hardwareInfo, isDetecting, onDetect }: HardwareTabProps) {
+function HardwareTab({ hardwareInfo, isDetecting, onDetect, onSelectGPU, onOptimize, maxContextLength }: HardwareTabProps) {
+  const [showGPUList, setShowGPUList] = useState(false);
+  const [gpuFilter, setGpuFilter] = useState<'all' | 'nvidia' | 'amd' | 'apple' | 'intel'>('all');
+  
+  const filteredGPUs = GPU_PRESETS.filter(gpu => 
+    gpuFilter === 'all' || gpu.vendor === gpuFilter
+  );
+  
+  const selectedGPU = GPU_PRESETS.find(g => g.id === hardwareInfo.selectedGPU);
+  const optimalSettings = getOptimalSettingsForTier(hardwareInfo.vramTier, maxContextLength);
+  
   return (
     <div className="space-y-6">
-      {/* Hardware info card */}
+      {/* GPU Selection */}
       <div className="bg-editor-bg rounded-lg p-4 border border-border">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-medium text-text-primary">GPU Information</h3>
+          <h3 className="font-medium text-text-primary">Select Your GPU</h3>
           <button
             onClick={onDetect}
             disabled={isDetecting}
-            className="flex items-center gap-2 px-3 py-1.5 bg-accent/10 hover:bg-accent/20 text-accent text-sm rounded transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-1.5 bg-border hover:bg-border/80 text-text-secondary text-sm rounded transition-colors disabled:opacity-50"
           >
             <RefreshCw className={cn('w-4 h-4', isDetecting && 'animate-spin')} />
-            {isDetecting ? 'Detecting...' : 'Re-detect'}
+            {isDetecting ? 'Detecting...' : 'Auto-detect'}
           </button>
         </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <InfoItem label="GPU" value={hardwareInfo.renderer || 'Unknown'} />
-          <InfoItem label="Vendor" value={hardwareInfo.vendor || 'Unknown'} />
-          <InfoItem label="VRAM" value={formatVRAM(hardwareInfo.vram)} />
-          <InfoItem label="Tier" value={hardwareInfo.vramTier.toUpperCase()} />
+        
+        {/* Current selection */}
+        <div className="mb-4 p-3 bg-sidebar-bg rounded-lg border border-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs text-text-secondary">Selected GPU</div>
+              <div className="text-sm text-text-primary font-medium">
+                {selectedGPU?.name || hardwareInfo.renderer || 'Not selected'}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-xs text-text-secondary">VRAM</div>
+              <div className="text-sm text-accent font-medium">
+                {formatVRAM(hardwareInfo.vram)}
+              </div>
+            </div>
+          </div>
         </div>
+        
+        {/* GPU list toggle */}
+        <button
+          onClick={() => setShowGPUList(!showGPUList)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-accent/10 hover:bg-accent/20 text-accent rounded-lg transition-colors"
+        >
+          <span className="font-medium">
+            {showGPUList ? 'Hide GPU List' : 'Select from GPU List'}
+          </span>
+          <ChevronDown className={cn('w-5 h-5 transition-transform', showGPUList && 'rotate-180')} />
+        </button>
+        
+        {/* GPU list */}
+        {showGPUList && (
+          <div className="mt-4 space-y-3">
+            {/* Filter tabs */}
+            <div className="flex gap-1 p-1 bg-sidebar-bg rounded-lg">
+              {(['all', 'nvidia', 'amd', 'apple', 'intel'] as const).map((filter) => (
+                <button
+                  key={filter}
+                  onClick={() => setGpuFilter(filter)}
+                  className={cn(
+                    'flex-1 px-2 py-1.5 text-xs font-medium rounded transition-colors capitalize',
+                    gpuFilter === filter
+                      ? 'bg-accent text-white'
+                      : 'text-text-secondary hover:text-text-primary'
+                  )}
+                >
+                  {filter}
+                </button>
+              ))}
+            </div>
+            
+            {/* GPU options */}
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {filteredGPUs.map((gpu) => (
+                <button
+                  key={gpu.id}
+                  onClick={() => {
+                    onSelectGPU(gpu.id);
+                    setShowGPUList(false);
+                  }}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-2 rounded-lg text-left transition-colors',
+                    hardwareInfo.selectedGPU === gpu.id
+                      ? 'bg-accent/20 border border-accent'
+                      : 'bg-sidebar-bg hover:bg-border'
+                  )}
+                >
+                  <div>
+                    <div className="text-sm text-text-primary font-medium">{gpu.name}</div>
+                    <div className="text-xs text-text-secondary">{formatVRAM(gpu.vramMB)}</div>
+                  </div>
+                  <span className={cn(
+                    'px-2 py-0.5 text-xs font-medium rounded',
+                    gpu.tier === 'ultra' && 'bg-purple-500/20 text-purple-400',
+                    gpu.tier === 'high' && 'bg-green-500/20 text-green-400',
+                    gpu.tier === 'medium' && 'bg-yellow-500/20 text-yellow-400',
+                    gpu.tier === 'low' && 'bg-red-500/20 text-red-400'
+                  )}>
+                    {gpu.tier.toUpperCase()}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* VRAM tier explanation */}
+      {/* Tier info and recommendations */}
       <div className="bg-editor-bg rounded-lg p-4 border border-border">
-        <h3 className="font-medium text-text-primary mb-3">VRAM Tier Guide</h3>
+        <h3 className="font-medium text-text-primary mb-3">Hardware Tier: {hardwareInfo.vramTier.toUpperCase()}</h3>
+        
         <div className="space-y-3 text-sm">
           <TierItem
+            tier="ULTRA"
+            description="20GB+ - Run largest models (70B+) with maximum context"
+            isActive={hardwareInfo.vramTier === 'ultra'}
+          />
+          <TierItem
             tier="HIGH"
-            description="12GB+ - Can run large models (13B+) with full context"
+            description="12-20GB - Large models (13B-34B) with generous context"
             isActive={hardwareInfo.vramTier === 'high'}
           />
           <TierItem
@@ -440,17 +547,36 @@ function HardwareTab({ hardwareInfo, isDetecting, onDetect }: HardwareTabProps) 
         </div>
       </div>
 
-      {/* Recommendations */}
-      <div className="flex items-start gap-3 p-4 bg-accent/5 border border-accent/20 rounded-lg">
-        <Zap className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
-        <div>
-          <h4 className="font-medium text-text-primary mb-1">Auto-Configuration</h4>
-          <p className="text-sm text-text-secondary">
-            SanctumWriter automatically adjusts context length based on your VRAM
-            and selected model size. You can manually override in Model Settings.
+      {/* Optimal settings for this tier */}
+      <div className="bg-editor-bg rounded-lg p-4 border border-border">
+        <h3 className="font-medium text-text-primary mb-3">Recommended Settings</h3>
+        <div className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Suggested Context</span>
+            <span className="text-accent font-mono">{optimalSettings.contextLength.toLocaleString()} tokens</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Model Size</span>
+            <span className="text-text-primary">{optimalSettings.suggestedModelSize}</span>
+          </div>
+          <p className="text-xs text-text-secondary mt-2 p-2 bg-sidebar-bg rounded">
+            {optimalSettings.description}
           </p>
         </div>
       </div>
+
+      {/* Optimize button */}
+      <button
+        onClick={onOptimize}
+        className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-accent hover:bg-accent-hover text-white font-medium rounded-lg transition-colors"
+      >
+        <Zap className="w-5 h-5" />
+        Optimize Settings for Writing
+      </button>
+      
+      <p className="text-xs text-center text-text-secondary">
+        This will configure optimal temperature, context, and sampling settings for your hardware tier.
+      </p>
     </div>
   );
 }
