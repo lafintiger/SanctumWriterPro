@@ -18,6 +18,7 @@ import {
   List,
   BookOpen,
   Download,
+  FileUp,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -28,6 +29,7 @@ import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
 import { useOutlineStore } from '@/lib/store/useOutlineStore';
 import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
 import { ExportModal } from '../Export/ExportModal';
+import { ConvertPanel } from '../Convert/ConvertPanel';
 
 export function Header() {
   const {
@@ -58,6 +60,7 @@ export function Header() {
   const enabledReviewersCount = getEnabledReviewers().length;
   const workflowProgress = currentDocument ? getProgress(currentDocument.path) : null;
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showConvertPanel, setShowConvertPanel] = useState(false);
   
   const [providerStatus, setProviderStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [showProviderMenu, setShowProviderMenu] = useState(false);
@@ -330,6 +333,14 @@ export function Header() {
           <Download className="w-5 h-5" />
         </button>
         
+        <button
+          onClick={() => setShowConvertPanel(true)}
+          className="p-1.5 hover:bg-border rounded text-text-secondary hover:text-text-primary"
+          title="Convert PDF to Markdown"
+        >
+          <FileUp className="w-5 h-5" />
+        </button>
+        
         <div className="w-px h-5 bg-border mx-1" />
         
         <button
@@ -379,6 +390,11 @@ export function Header() {
         isOpen={showExportModal} 
         onClose={() => setShowExportModal(false)} 
       />
+      
+      {/* Convert Panel */}
+      {showConvertPanel && (
+        <ConvertPanel onClose={() => setShowConvertPanel(false)} />
+      )}
     </header>
   );
 }

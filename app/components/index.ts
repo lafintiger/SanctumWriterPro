@@ -10,4 +10,5 @@ export { ResearchPanel } from './Research/ResearchPanel';
 export { OutlinePanel } from './Outline/OutlinePanel';
 export { PromptLibraryPanel } from './PromptLibrary/PromptLibraryPanel';
 export { ExportModal } from './Export/ExportModal';
+export { ConvertPanel } from './Convert/ConvertPanel';
 
