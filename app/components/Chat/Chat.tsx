@@ -1,15 +1,17 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Send, Bot, User, Loader2, CheckCircle, XCircle, Wand2 } from 'lucide-react';
+import { Send, Bot, User, Loader2, CheckCircle, XCircle, Wand2, Database, Brain } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useChatStore } from '@/lib/store/useChatStore';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useWorkflowStore, STAGE_LABELS } from '@/lib/store/useWorkflowStore';
+import { useRAGStore } from '@/lib/store/useRAGStore';
 import { streamChat, estimateMessagesTokens, LLMOptions } from '@/lib/llm/client';
 import { getSystemPrompt, WorkflowContext } from '@/lib/llm/tools';
 import { parseToolCallToOperation, executeOperation } from '@/lib/editor/operations';
+import { retrieveContext, buildMemoryContext, autoSaveSession } from '@/lib/rag';
 import { ChatMessage, LLMMessage } from '@/types';
 import { EditorView } from '@codemirror/view';
 import { v4 as uuidv4 } from 'uuid';
@@ -74,6 +76,7 @@ function MessageContent({ message }: { message: ChatMessage }) {
 
 export function Chat({ editorView }: ChatProps) {
   const [input, setInput] = useState('');
+  const [ragStatus, setRagStatus] = useState<'idle' | 'retrieving' | 'ready'>('idle');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   
@@ -95,9 +98,11 @@ export function Chat({ editorView }: ChatProps) {
     repeatPenalty, 
     contextLength,
     setContextUsed,
+    serviceURLs,
   } = useSettingsStore();
   
   const { getWorkflow, getProgress } = useWorkflowStore();
+  const { ragSettings, sessionMemorySettings } = useRAGStore();
   
   // Listen for prompt library insertions
   useEffect(() => {
@@ -162,8 +167,8 @@ export function Chat({ editorView }: ChatProps) {
       };
     }
 
-    // Build messages array with context
-    const systemPrompt = getSystemPrompt(
+    // Build base system prompt
+    let systemPrompt = getSystemPrompt(
       currentDocument.content,
       currentDocument.path,
       selection ? {
@@ -173,6 +178,55 @@ export function Chat({ editorView }: ChatProps) {
       } : undefined,
       workflowContext
     );
+
+    // RAG: Retrieve relevant context from knowledge base
+    let ragContext = '';
+    if (ragSettings.enabled) {
+      try {
+        setRagStatus('retrieving');
+        
+        // Retrieve from knowledge base
+        const retrieval = await retrieveContext(userMessage, {
+          collections: ragSettings.collections,
+          maxResults: ragSettings.maxRetrievedChunks,
+          minScore: ragSettings.minSimilarityScore,
+          maxTokens: ragSettings.maxTokensForContext,
+        }, ragSettings.embeddingModel);
+
+        if (retrieval.results.length > 0) {
+          ragContext = `
+
+## Retrieved Context from Knowledge Base
+
+The following information was retrieved from the user's knowledge base and may be relevant:
+
+${retrieval.context}
+
+Use this context to inform your response when relevant. Cite sources when referencing specific information.
+`;
+        }
+
+        // Retrieve session memory if enabled
+        if (sessionMemorySettings.enabled) {
+          const memoryContext = await buildMemoryContext(
+            currentDocument.path,
+            userMessage,
+            ragSettings.embeddingModel
+          );
+          if (memoryContext) {
+            ragContext += '\n' + memoryContext;
+          }
+        }
+
+        setRagStatus('ready');
+      } catch (error) {
+        console.warn('RAG retrieval failed, continuing without context:', error);
+        setRagStatus('idle');
+      }
+    }
+
+    // Append RAG context to system prompt
+    systemPrompt += ragContext;
 
     const llmMessages: LLMMessage[] = [
       { role: 'system', content: systemPrompt },
@@ -231,9 +285,29 @@ export function Chat({ editorView }: ChatProps) {
               }
             }
           },
-          onComplete: () => {
+          onComplete: async () => {
             updateMessage(assistantId, { status: 'complete' });
             setIsStreaming(false);
+            setRagStatus('idle');
+
+            // Auto-save session memory if enabled
+            if (sessionMemorySettings.enabled && sessionMemorySettings.autoSave && currentDocument) {
+              const allMessages = [...messages, { role: 'user', content: userMessage }];
+              if (allMessages.length >= sessionMemorySettings.autoSaveThreshold) {
+                try {
+                  await autoSaveSession(
+                    currentDocument.path,
+                    allMessages.map(m => ({ role: m.role, content: m.content })),
+                    serviceURLs?.ollama || 'http://localhost:11434',
+                    model,
+                    ragSettings.embeddingModel,
+                    sessionMemorySettings.autoSaveThreshold
+                  );
+                } catch (error) {
+                  console.warn('Auto-save session failed:', error);
+                }
+              }
+            }
           },
           onError: (error) => {
             updateMessage(assistantId, {
@@ -241,6 +315,7 @@ export function Chat({ editorView }: ChatProps) {
               content: `Error: ${error.message}`,
             });
             setIsStreaming(false);
+            setRagStatus('idle');
             showToast(`Chat error: ${error.message}`, 'error');
           },
         },
@@ -276,6 +351,11 @@ export function Chat({ editorView }: ChatProps) {
     repeatPenalty,
     contextLength,
     setContextUsed,
+    ragSettings,
+    sessionMemorySettings,
+    serviceURLs,
+    getWorkflow,
+    getProgress,
   ]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -294,6 +374,23 @@ export function Chat({ editorView }: ChatProps) {
         {selection && (
           <span className="text-xs text-accent bg-accent/10 px-2 py-0.5 rounded">
             Selection active
+          </span>
+        )}
+        {ragSettings.enabled && (
+          <span className={cn(
+            "text-xs px-2 py-0.5 rounded flex items-center gap-1",
+            ragStatus === 'retrieving' 
+              ? "bg-yellow-500/10 text-yellow-500" 
+              : "bg-green-500/10 text-green-500"
+          )}>
+            <Database className="w-3 h-3" />
+            {ragStatus === 'retrieving' ? 'Retrieving...' : 'RAG'}
+          </span>
+        )}
+        {sessionMemorySettings.enabled && (
+          <span className="text-xs bg-purple-500/10 text-purple-500 px-2 py-0.5 rounded flex items-center gap-1">
+            <Brain className="w-3 h-3" />
+            Memory
           </span>
         )}
       </div>

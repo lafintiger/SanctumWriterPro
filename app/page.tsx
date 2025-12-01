@@ -7,12 +7,15 @@ import { WorkflowPanel } from './components/Workflow/WorkflowPanel';
 import { WritingStatsBar } from './components/Editor/WritingStatsBar';
 import { OutlinePanel } from './components/Outline/OutlinePanel';
 import { PromptLibraryPanel } from './components/PromptLibrary/PromptLibraryPanel';
+import { KnowledgeBasePanel } from './components/KnowledgeBase/KnowledgeBasePanel';
+import { SessionMemoryPanel } from './components/SessionMemory/SessionMemoryPanel';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
 import { useOutlineStore } from '@/lib/store/useOutlineStore';
 import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
+import { useRAGStore } from '@/lib/store/useRAGStore';
 import { cn } from '@/lib/utils';
 
 export default function Home() {
@@ -32,6 +35,7 @@ export default function Home() {
   const { showWorkflowPanel } = useWorkflowStore();
   const { showOutlinePanel } = useOutlineStore();
   const { showPromptLibrary } = usePromptLibraryStore();
+  const { showKnowledgeBasePanel, showSessionMemoryPanel } = useRAGStore();
   
   // Keyboard shortcuts for focus mode
   useEffect(() => {
@@ -215,6 +219,20 @@ export default function Home() {
         {showPromptLibrary && !focusMode && (
           <div className="flex-shrink-0">
             <PromptLibraryPanel onSelectPrompt={handlePromptSelect} />
+          </div>
+        )}
+        
+        {/* Knowledge Base Panel - hidden in focus mode */}
+        {showKnowledgeBasePanel && !focusMode && (
+          <div className="flex-shrink-0 w-80">
+            <KnowledgeBasePanel />
+          </div>
+        )}
+        
+        {/* Session Memory Panel - hidden in focus mode */}
+        {showSessionMemoryPanel && !focusMode && (
+          <div className="flex-shrink-0 w-80">
+            <SessionMemoryPanel />
           </div>
         )}
 

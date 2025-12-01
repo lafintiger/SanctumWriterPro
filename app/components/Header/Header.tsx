@@ -19,6 +19,8 @@ import {
   BookOpen,
   Download,
   FileUp,
+  Database,
+  Brain,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -28,6 +30,7 @@ import { useSearchStore } from '@/lib/store/useSearchStore';
 import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
 import { useOutlineStore } from '@/lib/store/useOutlineStore';
 import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
+import { useRAGStore } from '@/lib/store/useRAGStore';
 import { ExportModal } from '../Export/ExportModal';
 import { ConvertPanel } from '../Convert/ConvertPanel';
 
@@ -57,6 +60,15 @@ export function Header() {
   const { showWorkflowPanel, toggleWorkflowPanel, getProgress } = useWorkflowStore();
   const { showOutlinePanel, toggleOutlinePanel, outline } = useOutlineStore();
   const { showPromptLibrary, togglePromptLibrary } = usePromptLibraryStore();
+  const { 
+    showKnowledgeBasePanel, 
+    toggleKnowledgeBasePanel, 
+    showSessionMemoryPanel, 
+    toggleSessionMemoryPanel,
+    ragSettings,
+    sessionMemorySettings,
+    indexedDocuments,
+  } = useRAGStore();
   const enabledReviewersCount = getEnabledReviewers().length;
   const workflowProgress = currentDocument ? getProgress(currentDocument.path) : null;
   const [showExportModal, setShowExportModal] = useState(false);
@@ -322,6 +334,38 @@ export function Header() {
           title="Prompt Library"
         >
           <BookOpen className="w-5 h-5" />
+        </button>
+        
+        <button
+          onClick={toggleKnowledgeBasePanel}
+          className={cn(
+            'p-1.5 rounded relative',
+            showKnowledgeBasePanel
+              ? 'bg-green-500/20 text-green-500'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Knowledge Base (RAG)"
+        >
+          <Database className="w-5 h-5" />
+          {ragSettings.enabled && indexedDocuments.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full" />
+          )}
+        </button>
+        
+        <button
+          onClick={toggleSessionMemoryPanel}
+          className={cn(
+            'p-1.5 rounded relative',
+            showSessionMemoryPanel
+              ? 'bg-purple-500/20 text-purple-500'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Session Memory"
+        >
+          <Brain className="w-5 h-5" />
+          {sessionMemorySettings.enabled && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-purple-500 rounded-full" />
+          )}
         </button>
         
         <button
