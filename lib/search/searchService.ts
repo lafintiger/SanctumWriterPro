@@ -4,6 +4,8 @@
  * Supports:
  * - Perplexica (localhost:3000) - AI-powered search like Perplexity
  * - SearXNG (localhost:4000) - Privacy-focused meta-search
+ * 
+ * All requests go through our API proxy to avoid CORS issues
  */
 
 export interface SearchResult {
@@ -26,53 +28,33 @@ export interface SearchResponse {
 
 export type SearchEngine = 'perplexica' | 'searxng' | 'both';
 
-const PERPLEXICA_URL = 'http://localhost:3000';
-const SEARXNG_URL = 'http://localhost:4000';
-
 /**
- * Check if a search engine is available
+ * Check if a search engine is available (via API proxy)
  */
 export async function checkSearchEngineStatus(): Promise<{
   perplexica: boolean;
   searxng: boolean;
 }> {
-  const status = { perplexica: false, searxng: false };
-  
   try {
-    const perplexicaCheck = await fetch(`${PERPLEXICA_URL}/api/health`, {
+    const response = await fetch('/api/search?action=status', {
       method: 'GET',
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(10000),
     });
-    status.perplexica = perplexicaCheck.ok;
-  } catch {
-    status.perplexica = false;
-  }
-  
-  try {
-    // SearXNG health check - just try to reach the main page
-    const searxngCheck = await fetch(`${SEARXNG_URL}/healthz`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(2000),
-    });
-    status.searxng = searxngCheck.ok;
-  } catch {
-    // Try alternate health check
-    try {
-      const searxngAlt = await fetch(`${SEARXNG_URL}/`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(2000),
-      });
-      status.searxng = searxngAlt.ok;
-    } catch {
-      status.searxng = false;
+    
+    if (response.ok) {
+      const status = await response.json();
+      console.log('Search engine status:', status);
+      return status;
     }
+  } catch (error) {
+    console.error('Failed to check search engine status:', error);
   }
   
-  return status;
+  return { perplexica: false, searxng: false };
 }
 
 /**
- * Search using SearXNG
+ * Search using SearXNG (via API proxy)
  */
 export async function searchSearXNG(
   query: string,
@@ -84,26 +66,16 @@ export async function searchSearXNG(
   }
 ): Promise<SearchResponse> {
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: 'json',
-      language: options?.language || 'en',
-      pageno: String(options?.pageNo || 1),
-    });
-    
-    if (options?.categories?.length) {
-      params.set('categories', options.categories.join(','));
-    }
-    
-    if (options?.engines?.length) {
-      params.set('engines', options.engines.join(','));
-    }
-    
-    const response = await fetch(`${SEARXNG_URL}/search?${params}`, {
-      method: 'GET',
+    const response = await fetch('/api/search', {
+      method: 'POST',
       headers: {
-        'Accept': 'application/json',
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        engine: 'searxng',
+        query,
+        categories: options?.categories,
+      }),
       signal: AbortSignal.timeout(15000),
     });
     
@@ -111,23 +83,7 @@ export async function searchSearXNG(
       throw new Error(`SearXNG error: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    
-    const results: SearchResult[] = (data.results || []).map((r: any) => ({
-      title: r.title || 'Untitled',
-      url: r.url || '',
-      snippet: r.content || r.description || '',
-      source: r.engine || 'searxng',
-      publishedDate: r.publishedDate,
-      relevanceScore: r.score,
-    }));
-    
-    return {
-      query,
-      results,
-      totalResults: data.number_of_results || results.length,
-      searchEngine: 'searxng',
-    };
+    return await response.json();
   } catch (error) {
     console.error('SearXNG search error:', error);
     return {
@@ -141,7 +97,7 @@ export async function searchSearXNG(
 }
 
 /**
- * Search using Perplexica
+ * Search using Perplexica (via API proxy)
  * Perplexica provides AI-enhanced search with summaries
  */
 export async function searchPerplexica(
@@ -152,42 +108,25 @@ export async function searchPerplexica(
   }
 ): Promise<SearchResponse> {
   try {
-    // Perplexica uses a chat-based API
-    const response = await fetch(`${PERPLEXICA_URL}/api/search`, {
+    const response = await fetch('/api/search', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        engine: 'perplexica',
         query,
         focusMode: options?.focusMode || 'webSearch',
         optimizationMode: options?.optimizationMode || 'balanced',
       }),
-      signal: AbortSignal.timeout(30000), // Perplexica can take longer due to AI processing
+      signal: AbortSignal.timeout(60000), // Perplexica can take longer due to AI processing
     });
     
     if (!response.ok) {
       throw new Error(`Perplexica error: ${response.status} ${response.statusText}`);
     }
     
-    const data = await response.json();
-    
-    // Parse Perplexica response format
-    const results: SearchResult[] = (data.sources || []).map((s: any) => ({
-      title: s.title || s.name || 'Untitled',
-      url: s.url || s.link || '',
-      snippet: s.snippet || s.description || '',
-      source: 'perplexica',
-      relevanceScore: s.score,
-    }));
-    
-    return {
-      query,
-      results,
-      totalResults: results.length,
-      searchEngine: 'perplexica',
-      aiSummary: data.answer || data.response || data.message,
-    };
+    return await response.json();
   } catch (error) {
     console.error('Perplexica search error:', error);
     return {
