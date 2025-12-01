@@ -21,6 +21,7 @@ import {
   FileUp,
   Database,
   Brain,
+  BookMarked,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -31,6 +32,7 @@ import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
 import { useOutlineStore } from '@/lib/store/useOutlineStore';
 import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
 import { useRAGStore } from '@/lib/store/useRAGStore';
+import { useCitationStore } from '@/lib/store/useCitationStore';
 import { ExportModal } from '../Export/ExportModal';
 import { ConvertPanel } from '../Convert/ConvertPanel';
 
@@ -69,6 +71,14 @@ export function Header() {
     sessionMemorySettings,
     indexedDocuments,
   } = useRAGStore();
+  
+  const {
+    showCitationPanel,
+    toggleCitationPanel,
+    getAllCitations,
+  } = useCitationStore();
+  
+  const citationCount = currentDocument ? getAllCitations(currentDocument.path).length : 0;
   const enabledReviewersCount = getEnabledReviewers().length;
   const workflowProgress = currentDocument ? getProgress(currentDocument.path) : null;
   const [showExportModal, setShowExportModal] = useState(false);
@@ -365,6 +375,24 @@ export function Header() {
           <Brain className="w-5 h-5" />
           {sessionMemorySettings.enabled && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-purple-500 rounded-full" />
+          )}
+        </button>
+        
+        <button
+          onClick={toggleCitationPanel}
+          className={cn(
+            'p-1.5 rounded relative',
+            showCitationPanel
+              ? 'bg-amber-500/20 text-amber-500'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Citations & Bibliography"
+        >
+          <BookMarked className="w-5 h-5" />
+          {citationCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 bg-amber-500 text-white text-[10px] rounded-full flex items-center justify-center">
+              {citationCount}
+            </span>
           )}
         </button>
         

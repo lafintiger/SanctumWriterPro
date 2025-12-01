@@ -9,6 +9,7 @@ import { OutlinePanel } from './components/Outline/OutlinePanel';
 import { PromptLibraryPanel } from './components/PromptLibrary/PromptLibraryPanel';
 import { KnowledgeBasePanel } from './components/KnowledgeBase/KnowledgeBasePanel';
 import { SessionMemoryPanel } from './components/SessionMemory/SessionMemoryPanel';
+import { CitationPanel } from './components/Citations/CitationPanel';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
@@ -16,6 +17,7 @@ import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
 import { useOutlineStore } from '@/lib/store/useOutlineStore';
 import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
 import { useRAGStore } from '@/lib/store/useRAGStore';
+import { useCitationStore } from '@/lib/store/useCitationStore';
 import { cn } from '@/lib/utils';
 
 export default function Home() {
@@ -36,6 +38,7 @@ export default function Home() {
   const { showOutlinePanel } = useOutlineStore();
   const { showPromptLibrary } = usePromptLibraryStore();
   const { showKnowledgeBasePanel, showSessionMemoryPanel } = useRAGStore();
+  const { showCitationPanel } = useCitationStore();
   
   // Keyboard shortcuts for focus mode
   useEffect(() => {
@@ -233,6 +236,13 @@ export default function Home() {
         {showSessionMemoryPanel && !focusMode && (
           <div className="flex-shrink-0 w-80">
             <SessionMemoryPanel />
+          </div>
+        )}
+        
+        {/* Citation Panel - hidden in focus mode */}
+        {showCitationPanel && !focusMode && (
+          <div className="flex-shrink-0">
+            <CitationPanel />
           </div>
         )}
 

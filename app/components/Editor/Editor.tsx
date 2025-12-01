@@ -47,6 +47,26 @@ export function Editor({ onEditorReady }: EditorProps) {
       updateReviewComments(editorRef.current.view, []);
     }
   }, [currentSession?.comments]);
+  
+  // Listen for citation insertions
+  useEffect(() => {
+    const handleCitationInsert = (e: CustomEvent<{ citation: string }>) => {
+      const view = editorRef.current?.view;
+      if (!view) return;
+      
+      const { from } = view.state.selection.main;
+      view.dispatch({
+        changes: { from, insert: e.detail.citation },
+        selection: { anchor: from + e.detail.citation.length },
+      });
+      view.focus();
+    };
+    
+    window.addEventListener('sanctum-insert-citation', handleCitationInsert as EventListener);
+    return () => {
+      window.removeEventListener('sanctum-insert-citation', handleCitationInsert as EventListener);
+    };
+  }, []);
 
   // Auto-save with debounce
   const saveDocument = useCallback(
