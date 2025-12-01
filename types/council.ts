@@ -21,6 +21,52 @@ export interface Reviewer {
   systemPrompt: string;
   enabled: boolean;
   color: string; // For UI highlighting
+  isEditor?: boolean; // The Editor synthesizes council feedback
+}
+
+// Review Document - collects all council commentary
+export interface ReviewDocument {
+  id: string;
+  sessionId: string;
+  documentPath: string;
+  originalContent: string;
+  
+  // Council feedback organized by reviewer
+  councilFeedback: {
+    reviewerId: string;
+    reviewerName: string;
+    reviewerIcon: string;
+    model: string;
+    comments: ReviewComment[];
+    summary: string; // Summary from this reviewer
+    timestamp: Date;
+  }[];
+  
+  // Editor's synthesis
+  editorSynthesis?: {
+    reviewerId: string;
+    model: string;
+    overallAssessment: string;
+    prioritizedChanges: {
+      priority: 'high' | 'medium' | 'low';
+      description: string;
+      relatedComments: string[]; // Comment IDs
+      userApproved?: boolean;
+    }[];
+    suggestedRevision?: string; // Full revised document if requested
+    timestamp: Date;
+  };
+  
+  // User decisions
+  userDecisions: {
+    commentId: string;
+    decision: 'accept' | 'reject' | 'modify';
+    userNote?: string;
+    timestamp: Date;
+  }[];
+  
+  createdAt: Date;
+  status: 'collecting' | 'reviewing' | 'editing' | 'complete';
 }
 
 export interface ReviewComment {
@@ -181,6 +227,37 @@ Format your feedback as JSON array:
 [{"line": 1, "type": "warning", "text": "original text", "comment": "technical issue", "suggestion": "accurate version"}]`,
     enabled: false,
     color: '#06B6D4', // cyan
+  },
+  {
+    name: 'Editor',
+    role: 'style_editor',
+    icon: '📝',
+    description: 'Synthesizes council feedback and works with you to finalize changes',
+    model: 'qwen3:latest',
+    systemPrompt: `You are the Chief Editor. Your role is to:
+1. Review all feedback from the council of reviewers
+2. Synthesize their comments into actionable recommendations
+3. Prioritize changes based on importance and impact
+4. Work with the user to decide which changes to implement
+5. Help revise the document based on agreed-upon changes
+
+When reviewing council feedback, consider:
+- Which suggestions are most critical for the document's purpose?
+- Are there conflicting recommendations that need resolution?
+- What changes will most improve the overall quality?
+
+Provide your synthesis as:
+{
+  "overallAssessment": "Brief summary of the document's current state",
+  "prioritizedChanges": [
+    {"priority": "high/medium/low", "description": "what to change", "reason": "why"}
+  ],
+  "conflictingFeedback": ["any disagreements between reviewers"],
+  "recommendedFocus": "what the user should focus on first"
+}`,
+    enabled: true,
+    color: '#EC4899', // pink
+    isEditor: true,
   },
 ];
 

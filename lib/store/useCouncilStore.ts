@@ -5,6 +5,7 @@ import {
   Reviewer, 
   ReviewComment, 
   ReviewSession, 
+  ReviewDocument,
   DEFAULT_REVIEWERS 
 } from '@/types/council';
 
@@ -12,10 +13,18 @@ interface CouncilState {
   // Reviewers configuration
   reviewers: Reviewer[];
   
+  // Model loading state (tracks which models are currently loaded in Ollama)
+  loadedModels: string[];
+  modelLoadingStatus: { [model: string]: 'loading' | 'loaded' | 'unloading' | 'error' };
+  
   // Current review session
   currentSession: ReviewSession | null;
   isReviewing: boolean;
   reviewProgress: { [reviewerId: string]: 'pending' | 'in_progress' | 'complete' | 'error' };
+  
+  // Review document (council commentary)
+  currentReviewDocument: ReviewDocument | null;
+  reviewPhase: 'idle' | 'council_reviewing' | 'editor_synthesizing' | 'user_deciding' | 'complete';
   
   // Review history
   pastSessions: ReviewSession[];
@@ -31,7 +40,12 @@ interface CouncilState {
   updateReviewer: (id: string, updates: Partial<Reviewer>) => void;
   removeReviewer: (id: string) => void;
   toggleReviewer: (id: string) => void;
+  setEditorReviewer: (id: string) => void;
   resetToDefaults: () => void;
+  
+  // Actions - Model Loading
+  setModelLoading: (model: string, status: 'loading' | 'loaded' | 'unloading' | 'error') => void;
+  setLoadedModels: (models: string[]) => void;
   
   // Actions - Review Session
   startReview: (documentPath: string, content: string, reviewerIds: string[]) => void;
@@ -42,6 +56,13 @@ interface CouncilState {
   cancelReview: () => void;
   clearSession: () => void;
   
+  // Actions - Review Document & Editor
+  initReviewDocument: (sessionId: string, documentPath: string, content: string) => void;
+  addCouncilFeedback: (reviewerId: string, comments: ReviewComment[], summary: string) => void;
+  setEditorSynthesis: (synthesis: ReviewDocument['editorSynthesis']) => void;
+  addUserDecision: (commentId: string, decision: 'accept' | 'reject' | 'modify', note?: string) => void;
+  setReviewPhase: (phase: CouncilState['reviewPhase']) => void;
+  
   // Actions - UI
   toggleCouncilPanel: () => void;
   setSelectedReviewer: (id: string | null) => void;
@@ -50,6 +71,8 @@ interface CouncilState {
   
   // Getters
   getEnabledReviewers: () => Reviewer[];
+  getEditorReviewer: () => Reviewer | undefined;
+  getCouncilReviewers: () => Reviewer[]; // All enabled reviewers except Editor
   getCommentsForLine: (line: number) => ReviewComment[];
   getCommentsByReviewer: (reviewerId: string) => ReviewComment[];
   getCommentStats: () => { total: number; byType: Record<string, number>; byReviewer: Record<string, number> };
@@ -68,9 +91,13 @@ export const useCouncilStore = create<CouncilState>()(
     (set, get) => ({
       // Initial state
       reviewers: initializeReviewers(),
+      loadedModels: [],
+      modelLoadingStatus: {},
       currentSession: null,
       isReviewing: false,
       reviewProgress: {},
+      currentReviewDocument: null,
+      reviewPhase: 'idle',
       pastSessions: [],
       showCouncilPanel: false,
       selectedReviewerId: null,
@@ -112,6 +139,34 @@ export const useCouncilStore = create<CouncilState>()(
       
       resetToDefaults: () => {
         set({ reviewers: initializeReviewers() });
+      },
+      
+      setEditorReviewer: (id) => {
+        set((state) => ({
+          reviewers: state.reviewers.map((r) => ({
+            ...r,
+            isEditor: r.id === id,
+          })),
+        }));
+      },
+      
+      // Model loading management
+      setModelLoading: (model, status) => {
+        set((state) => ({
+          modelLoadingStatus: {
+            ...state.modelLoadingStatus,
+            [model]: status,
+          },
+          loadedModels: status === 'loaded' 
+            ? [...new Set([...state.loadedModels, model])]
+            : status === 'unloading' || status === 'error'
+              ? state.loadedModels.filter((m) => m !== model)
+              : state.loadedModels,
+        }));
+      },
+      
+      setLoadedModels: (models) => {
+        set({ loadedModels: models });
       },
       
       // Review session management
@@ -217,7 +272,102 @@ export const useCouncilStore = create<CouncilState>()(
           currentSession: null,
           isReviewing: false,
           reviewProgress: {},
+          currentReviewDocument: null,
+          reviewPhase: 'idle',
         });
+      },
+      
+      // Review Document & Editor actions
+      initReviewDocument: (sessionId, documentPath, content) => {
+        const doc: ReviewDocument = {
+          id: uuidv4(),
+          sessionId,
+          documentPath,
+          originalContent: content,
+          councilFeedback: [],
+          userDecisions: [],
+          createdAt: new Date(),
+          status: 'collecting',
+        };
+        set({ 
+          currentReviewDocument: doc,
+          reviewPhase: 'council_reviewing',
+        });
+      },
+      
+      addCouncilFeedback: (reviewerId, comments, summary) => {
+        const reviewer = get().reviewers.find((r) => r.id === reviewerId);
+        if (!reviewer) return;
+        
+        set((state) => {
+          if (!state.currentReviewDocument) return state;
+          return {
+            currentReviewDocument: {
+              ...state.currentReviewDocument,
+              councilFeedback: [
+                ...state.currentReviewDocument.councilFeedback,
+                {
+                  reviewerId,
+                  reviewerName: reviewer.name,
+                  reviewerIcon: reviewer.icon,
+                  model: reviewer.model,
+                  comments,
+                  summary,
+                  timestamp: new Date(),
+                },
+              ],
+            },
+          };
+        });
+      },
+      
+      setEditorSynthesis: (synthesis) => {
+        set((state) => {
+          if (!state.currentReviewDocument) return state;
+          return {
+            currentReviewDocument: {
+              ...state.currentReviewDocument,
+              editorSynthesis: synthesis,
+              status: 'editing',
+            },
+            reviewPhase: 'user_deciding',
+          };
+        });
+      },
+      
+      addUserDecision: (commentId, decision, note) => {
+        set((state) => {
+          if (!state.currentReviewDocument) return state;
+          return {
+            currentReviewDocument: {
+              ...state.currentReviewDocument,
+              userDecisions: [
+                ...state.currentReviewDocument.userDecisions,
+                {
+                  commentId,
+                  decision,
+                  userNote: note,
+                  timestamp: new Date(),
+                },
+              ],
+            },
+          };
+        });
+      },
+      
+      setReviewPhase: (phase) => {
+        set({ reviewPhase: phase });
+        if (phase === 'complete') {
+          set((state) => {
+            if (!state.currentReviewDocument) return state;
+            return {
+              currentReviewDocument: {
+                ...state.currentReviewDocument,
+                status: 'complete',
+              },
+            };
+          });
+        }
       },
       
       // UI actions
@@ -240,6 +390,14 @@ export const useCouncilStore = create<CouncilState>()(
       // Getters
       getEnabledReviewers: () => {
         return get().reviewers.filter((r) => r.enabled);
+      },
+      
+      getEditorReviewer: () => {
+        return get().reviewers.find((r) => r.isEditor && r.enabled);
+      },
+      
+      getCouncilReviewers: () => {
+        return get().reviewers.filter((r) => r.enabled && !r.isEditor);
       },
       
       getCommentsForLine: (line) => {

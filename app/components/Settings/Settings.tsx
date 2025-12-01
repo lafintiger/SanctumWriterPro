@@ -713,12 +713,18 @@ function CouncilTab() {
     updateReviewer,
     removeReviewer,
     toggleReviewer,
+    setEditorReviewer,
     resetToDefaults,
+    getEditorReviewer,
+    getCouncilReviewers,
   } = useCouncilStore();
   
   const { availableModels } = useAppStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
+  
+  const editor = getEditorReviewer();
+  const councilMembers = getCouncilReviewers();
   
   return (
     <div className="space-y-6">
@@ -747,6 +753,26 @@ function CouncilTab() {
         </div>
       </div>
       
+      {/* Workflow Explanation */}
+      <div className="bg-editor-bg rounded-lg p-4 border border-border">
+        <h4 className="font-medium text-text-primary mb-2">📋 Review Workflow</h4>
+        <div className="text-sm text-text-secondary space-y-1">
+          <p>1. <strong>Council Reviews</strong> - Each enabled reviewer analyzes your document</p>
+          <p>2. <strong>Editor Synthesizes</strong> - The Editor combines all feedback</p>
+          <p>3. <strong>You Decide</strong> - Review suggestions and approve changes</p>
+        </div>
+        <div className="mt-3 flex items-center gap-2 text-xs">
+          <span className="text-text-secondary">Current Editor:</span>
+          {editor ? (
+            <span className="flex items-center gap-1 px-2 py-0.5 bg-pink-500/20 text-pink-400 rounded">
+              {editor.icon} {editor.name}
+            </span>
+          ) : (
+            <span className="text-yellow-400">⚠️ No editor selected</span>
+          )}
+        </div>
+      </div>
+      
       {/* Add Reviewer Form */}
       {showAddForm && (
         <ReviewerForm
@@ -759,9 +785,12 @@ function CouncilTab() {
         />
       )}
       
-      {/* Reviewers List */}
-      <div className="space-y-3">
-        {reviewers.map((reviewer) => (
+      {/* Editor Section */}
+      <div>
+        <h4 className="text-sm font-medium text-text-primary mb-2 flex items-center gap-2">
+          📝 Editor <span className="text-xs text-text-secondary font-normal">(synthesizes council feedback)</span>
+        </h4>
+        {reviewers.filter(r => r.isEditor).map((reviewer) => (
           <div key={reviewer.id}>
             {editingId === reviewer.id ? (
               <ReviewerForm
@@ -779,10 +808,45 @@ function CouncilTab() {
                 onToggle={() => toggleReviewer(reviewer.id)}
                 onEdit={() => setEditingId(reviewer.id)}
                 onDelete={() => removeReviewer(reviewer.id)}
+                onSetEditor={() => setEditorReviewer(reviewer.id)}
+                isEditor={true}
               />
             )}
           </div>
         ))}
+      </div>
+      
+      {/* Council Members Section */}
+      <div>
+        <h4 className="text-sm font-medium text-text-primary mb-2 flex items-center gap-2">
+          👥 Council Members <span className="text-xs text-text-secondary font-normal">({councilMembers.length} active)</span>
+        </h4>
+        <div className="space-y-3">
+          {reviewers.filter(r => !r.isEditor).map((reviewer) => (
+            <div key={reviewer.id}>
+              {editingId === reviewer.id ? (
+                <ReviewerForm
+                  reviewer={reviewer}
+                  onSave={(updated) => {
+                    updateReviewer(reviewer.id, updated);
+                    setEditingId(null);
+                  }}
+                  onCancel={() => setEditingId(null)}
+                  availableModels={availableModels}
+                />
+              ) : (
+                <ReviewerCard
+                  reviewer={reviewer}
+                  onToggle={() => toggleReviewer(reviewer.id)}
+                  onEdit={() => setEditingId(reviewer.id)}
+                  onDelete={() => removeReviewer(reviewer.id)}
+                  onSetEditor={() => setEditorReviewer(reviewer.id)}
+                  isEditor={false}
+                />
+              )}
+            </div>
+          ))}
+        </div>
       </div>
       
       {reviewers.length === 0 && (
@@ -807,15 +871,19 @@ interface ReviewerCardProps {
   onToggle: () => void;
   onEdit: () => void;
   onDelete: () => void;
+  onSetEditor: () => void;
+  isEditor: boolean;
 }
 
-function ReviewerCard({ reviewer, onToggle, onEdit, onDelete }: ReviewerCardProps) {
+function ReviewerCard({ reviewer, onToggle, onEdit, onDelete, onSetEditor, isEditor }: ReviewerCardProps) {
   return (
     <div
       className={cn(
         'p-4 rounded-lg border transition-colors',
         reviewer.enabled
-          ? 'bg-accent/5 border-accent/30'
+          ? isEditor 
+            ? 'bg-pink-500/5 border-pink-500/30'
+            : 'bg-accent/5 border-accent/30'
           : 'bg-editor-bg border-border'
       )}
     >
@@ -851,6 +919,20 @@ function ReviewerCard({ reviewer, onToggle, onEdit, onDelete }: ReviewerCardProp
         </div>
         
         <div className="flex items-center gap-1">
+          {!isEditor && (
+            <button
+              onClick={onSetEditor}
+              className="p-1.5 text-text-secondary hover:text-pink-400 hover:bg-pink-400/10 rounded transition-colors"
+              title="Make this the Editor"
+            >
+              📝
+            </button>
+          )}
+          {isEditor && (
+            <span className="px-2 py-0.5 text-xs bg-pink-500/20 text-pink-400 rounded">
+              Editor
+            </span>
+          )}
           <button
             onClick={onEdit}
             className="p-1.5 text-text-secondary hover:text-accent hover:bg-accent/10 rounded transition-colors"
