@@ -15,6 +15,9 @@ import {
   Search,
   ListChecks,
   Focus,
+  List,
+  BookOpen,
+  Download,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -22,6 +25,9 @@ import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
+import { useOutlineStore } from '@/lib/store/useOutlineStore';
+import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
+import { ExportModal } from '../Export/ExportModal';
 
 export function Header() {
   const {
@@ -47,8 +53,11 @@ export function Header() {
   const { showCouncilPanel, toggleCouncilPanel, getEnabledReviewers } = useCouncilStore();
   const { showResearchPanel, toggleResearchPanel, engineStatus } = useSearchStore();
   const { showWorkflowPanel, toggleWorkflowPanel, getProgress } = useWorkflowStore();
+  const { showOutlinePanel, toggleOutlinePanel, outline } = useOutlineStore();
+  const { showPromptLibrary, togglePromptLibrary } = usePromptLibraryStore();
   const enabledReviewersCount = getEnabledReviewers().length;
   const workflowProgress = currentDocument ? getProgress(currentDocument.path) : null;
+  const [showExportModal, setShowExportModal] = useState(false);
   
   const [providerStatus, setProviderStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
   const [showProviderMenu, setShowProviderMenu] = useState(false);
@@ -284,6 +293,46 @@ export function Header() {
         </button>
         
         <button
+          onClick={toggleOutlinePanel}
+          className={cn(
+            'p-1.5 rounded relative',
+            showOutlinePanel
+              ? 'bg-accent/20 text-accent'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Document Outline"
+        >
+          <List className="w-5 h-5" />
+          {outline.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-accent rounded-full" />
+          )}
+        </button>
+        
+        <button
+          onClick={togglePromptLibrary}
+          className={cn(
+            'p-1.5 rounded',
+            showPromptLibrary
+              ? 'bg-accent/20 text-accent'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Prompt Library"
+        >
+          <BookOpen className="w-5 h-5" />
+        </button>
+        
+        <button
+          onClick={() => setShowExportModal(true)}
+          disabled={!currentDocument}
+          className="p-1.5 hover:bg-border rounded text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+          title="Export Document"
+        >
+          <Download className="w-5 h-5" />
+        </button>
+        
+        <div className="w-px h-5 bg-border mx-1" />
+        
+        <button
           onClick={toggleFocusMode}
           className={cn(
             'p-1.5 rounded',
@@ -324,6 +373,12 @@ export function Header() {
           }}
         />
       )}
+      
+      {/* Export Modal */}
+      <ExportModal 
+        isOpen={showExportModal} 
+        onClose={() => setShowExportModal(false)} 
+      />
     </header>
   );
 }

@@ -98,6 +98,19 @@ export function Chat({ editorView }: ChatProps) {
   } = useSettingsStore();
   
   const { getWorkflow, getProgress } = useWorkflowStore();
+  
+  // Listen for prompt library insertions
+  useEffect(() => {
+    const handlePromptInsert = (e: CustomEvent<{ content: string }>) => {
+      setInput(e.detail.content);
+      inputRef.current?.focus();
+    };
+    
+    window.addEventListener('sanctum-insert-prompt', handlePromptInsert as EventListener);
+    return () => {
+      window.removeEventListener('sanctum-insert-prompt', handlePromptInsert as EventListener);
+    };
+  }, []);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -309,6 +322,7 @@ export function Chat({ editorView }: ChatProps) {
         <div className="flex items-end gap-2">
           <textarea
             ref={inputRef}
+            data-chat-input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

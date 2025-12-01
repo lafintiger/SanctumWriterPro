@@ -5,10 +5,14 @@ import { EditorView } from '@codemirror/view';
 import { Editor, FileTree, Chat, Header, Preview, Toast, Settings, CouncilPanel, ResearchPanel } from './components';
 import { WorkflowPanel } from './components/Workflow/WorkflowPanel';
 import { WritingStatsBar } from './components/Editor/WritingStatsBar';
+import { OutlinePanel } from './components/Outline/OutlinePanel';
+import { PromptLibraryPanel } from './components/PromptLibrary/PromptLibraryPanel';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
+import { useOutlineStore } from '@/lib/store/useOutlineStore';
+import { usePromptLibraryStore } from '@/lib/store/usePromptLibraryStore';
 import { cn } from '@/lib/utils';
 
 export default function Home() {
@@ -26,6 +30,8 @@ export default function Home() {
   const { showCouncilPanel } = useCouncilStore();
   const { showResearchPanel } = useSearchStore();
   const { showWorkflowPanel } = useWorkflowStore();
+  const { showOutlinePanel } = useOutlineStore();
+  const { showPromptLibrary } = usePromptLibraryStore();
   
   // Keyboard shortcuts for focus mode
   useEffect(() => {
@@ -52,6 +58,30 @@ export default function Home() {
 
   const handleEditorReady = useCallback((view: EditorView) => {
     setEditorView(view);
+  }, []);
+
+  // Navigate to a specific line in the editor (for outline)
+  const handleNavigateToLine = useCallback((line: number) => {
+    if (editorView) {
+      const doc = editorView.state.doc;
+      if (line >= 1 && line <= doc.lines) {
+        const lineInfo = doc.line(line);
+        editorView.dispatch({
+          selection: { anchor: lineInfo.from },
+          scrollIntoView: true,
+        });
+        editorView.focus();
+      }
+    }
+  }, [editorView]);
+
+  // Handle prompt selection from library
+  const handlePromptSelect = useCallback((promptContent: string) => {
+    // Dispatch custom event for Chat component to receive
+    const event = new CustomEvent('sanctum-insert-prompt', {
+      detail: { content: promptContent }
+    });
+    window.dispatchEvent(event);
   }, []);
 
   // Handle sidebar resize
@@ -171,6 +201,20 @@ export default function Home() {
         {showWorkflowPanel && !focusMode && (
           <div className="flex-shrink-0">
             <WorkflowPanel />
+          </div>
+        )}
+        
+        {/* Outline Panel - hidden in focus mode */}
+        {showOutlinePanel && !focusMode && (
+          <div className="flex-shrink-0">
+            <OutlinePanel onNavigateToLine={handleNavigateToLine} />
+          </div>
+        )}
+        
+        {/* Prompt Library - hidden in focus mode */}
+        {showPromptLibrary && !focusMode && (
+          <div className="flex-shrink-0">
+            <PromptLibraryPanel onSelectPrompt={handlePromptSelect} />
           </div>
         )}
 
