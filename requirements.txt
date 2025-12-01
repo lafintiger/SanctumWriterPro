@@ -1,0 +1,6 @@
+# SanctumWriter Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# Document conversion
+docling>=2.0.0
+

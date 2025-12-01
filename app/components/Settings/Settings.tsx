@@ -1196,13 +1196,6 @@ function ServicesTab({ serviceURLs, onSetServiceURL, onResetServiceURLs }: Servi
       defaultPort: 4000,
       healthEndpoint: '/healthz',
     },
-    {
-      key: 'docling',
-      name: 'Docling',
-      description: 'PDF/Document to Markdown converter',
-      defaultPort: 3126,
-      healthEndpoint: '/health',
-    },
   ];
   
   const testConnection = async (key: keyof ServiceURLs, url: string, healthEndpoint: string) => {
@@ -1215,11 +1208,6 @@ function ServicesTab({ serviceURLs, onSetServiceURL, onResetServiceURLs }: Servi
         const data = await response.json();
         const isOnline = key === 'perplexica' ? data.perplexica : data.searxng;
         setTestResults(prev => ({ ...prev, [key]: isOnline ? 'success' : 'error' }));
-      } else if (key === 'docling') {
-        // Use the convert API for Docling
-        const response = await fetch(`/api/convert?doclingUrl=${encodeURIComponent(url)}`);
-        const data = await response.json();
-        setTestResults(prev => ({ ...prev, [key]: data.available ? 'success' : 'error' }));
       } else {
         // Direct test for Ollama and LM Studio
         const response = await fetch(`${url}${healthEndpoint}`, {

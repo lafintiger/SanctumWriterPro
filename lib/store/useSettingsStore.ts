@@ -212,7 +212,6 @@ export interface ServiceURLs {
   lmstudio: string;
   perplexica: string;
   searxng: string;
-  docling: string;
 }
 
 export const DEFAULT_SERVICE_URLS: ServiceURLs = {
@@ -220,7 +219,6 @@ export const DEFAULT_SERVICE_URLS: ServiceURLs = {
   lmstudio: 'http://localhost:1234',
   perplexica: 'http://localhost:3000',
   searxng: 'http://localhost:4000',
-  docling: 'http://localhost:3126',
 };
 
 interface SettingsState {

@@ -36,7 +36,7 @@ interface ConvertPanelProps {
 }
 
 export function ConvertPanel({ onClose }: ConvertPanelProps) {
-  const { workspacePath, serviceURLs } = useSettingsStore();
+  const { workspacePath } = useSettingsStore();
   const { showToast, openDocument } = useAppStore();
   
   const [isDragging, setIsDragging] = useState(false);
@@ -54,13 +54,13 @@ export function ConvertPanel({ onClose }: ConvertPanelProps) {
   // Check Docling availability
   const checkDocling = useCallback(async () => {
     try {
-      const response = await fetch(`/api/convert?doclingUrl=${encodeURIComponent(serviceURLs.docling)}`);
+      const response = await fetch('/api/convert');
       const data = await response.json();
       setDoclingAvailable(data.available);
     } catch {
       setDoclingAvailable(false);
     }
-  }, [serviceURLs.docling]);
+  }, []);
   
   React.useEffect(() => {
     checkDocling();
@@ -128,8 +128,6 @@ export function ConvertPanel({ onClose }: ConvertPanelProps) {
       if (activeTab === 'file' && selectedFile) {
         formData.append('file', selectedFile);
       }
-      
-      formData.append('doclingUrl', serviceURLs.docling);
       
       // Include workspace path for saving
       if (workspacePath) {
@@ -225,22 +223,23 @@ export function ConvertPanel({ onClose }: ConvertPanelProps) {
             {doclingAvailable === null && (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Checking Docling server...</span>
+                <span className="text-sm">Checking Docling...</span>
               </>
             )}
             {doclingAvailable === true && (
               <>
                 <Check className="w-4 h-4" />
-                <span className="text-sm">Docling server connected</span>
+                <span className="text-sm">Docling is installed and ready</span>
               </>
             )}
             {doclingAvailable === false && (
               <>
                 <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">Docling server not running</span>
+                <span className="text-sm">Docling not installed</span>
                 <button
                   onClick={checkDocling}
                   className="ml-auto p-1 hover:bg-border rounded"
+                  title="Recheck"
                 >
                   <RefreshCw className="w-3.5 h-3.5" />
                 </button>
@@ -250,12 +249,11 @@ export function ConvertPanel({ onClose }: ConvertPanelProps) {
           
           {doclingAvailable === false && (
             <div className="mb-4 p-4 bg-editor-bg rounded-lg border border-border">
-              <p className="text-sm text-text-primary mb-2">To start the Docling server:</p>
+              <p className="text-sm text-text-primary mb-2">To enable PDF conversion, install Docling:</p>
               <div className="bg-sidebar-bg p-3 rounded font-mono text-xs text-text-secondary">
-                <p className="mb-1"># Install dependencies</p>
-                <p className="text-accent">pip install docling fastapi uvicorn python-multipart</p>
-                <p className="mt-2 mb-1"># Run server</p>
-                <p className="text-accent">python scripts/docling_server.py</p>
+                <p className="text-accent">pip install -r requirements.txt</p>
+                <p className="mt-2 text-text-secondary">or</p>
+                <p className="text-accent mt-1">pip install docling</p>
               </div>
             </div>
           )}
