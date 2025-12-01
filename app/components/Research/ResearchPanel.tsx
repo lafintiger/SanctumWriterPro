@@ -258,7 +258,7 @@ export function ResearchPanel() {
     if (aiSummary) {
       const markdown = formatResultsAsMarkdown(
         { query: currentQuery, results, totalResults: results.length, searchEngine: preferredEngine, aiSummary },
-        { includeAiSummary: true, maxResults: 3, includeUrls: true }
+        { includeAiSummary: true, maxResults: 10, includeUrls: true }
       );
       
       if (currentDocument) {
