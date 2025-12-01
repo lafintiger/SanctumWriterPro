@@ -32,21 +32,21 @@ A local-first, privacy-focused writing environment that combines the power of lo
 
 ---
 
-### Phase 2: Council of Writers 👥
+### Phase 2: Council of Writers 👥 ✅
 **Goal**: Multi-model review system with specialized experts
 
 | Feature | Description | Priority | Status |
 |---------|-------------|----------|--------|
-| **Model Roster** | Define multiple models with specializations | P0 | 🔲 |
-| **Review Pipeline** | Sequential or parallel review by multiple models | P0 | 🔲 |
-| **Specialized Reviewers** | Configure models for Medical, Legal, Social, Technical | P0 | 🔲 |
-| **Review Comments** | Inline annotations from each reviewer | P1 | 🔲 |
-| **Consensus View** | Aggregate feedback from all reviewers | P1 | 🔲 |
-| **Custom Reviewer Prompts** | Define system prompts for each reviewer role | P1 | 🔲 |
+| **Model Roster** | Define multiple models with specializations | P0 | ✅ |
+| **Review Pipeline** | Sequential or parallel review by multiple models | P0 | ✅ |
+| **Specialized Reviewers** | Configure models for Medical, Legal, Social, Technical | P0 | ✅ |
+| **Review Comments** | Inline annotations from each reviewer | P1 | ✅ |
+| **Consensus View** | Aggregate feedback from all reviewers | P1 | ✅ |
+| **Custom Reviewer Prompts** | Define system prompts for each reviewer role | P1 | ✅ |
 | **Review History** | Track what each model suggested | P2 | 🔲 |
-| **Accept/Reject Suggestions** | Per-reviewer suggestion management | P1 | 🔲 |
+| **Accept/Reject Suggestions** | Per-reviewer suggestion management | P1 | ✅ |
 | **Reviewer Confidence Scores** | Each reviewer rates their confidence | P2 | 🔲 |
-| **Batch Review** | Review entire document or selected sections | P1 | 🔲 |
+| **Batch Review** | Review entire document or selected sections | P1 | ✅ |
 
 **Suggested Reviewer Roles**:
 | Role | Icon | Purpose | Suggested Models |
@@ -280,8 +280,8 @@ Creative Storyteller:
 
 ```
 Phase 1: Writer Optimization     ██████████  [COMPLETE ✅]
-Phase 2: Council of Writers      ░░░░░░░░░░  [IN PROGRESS 🔶]
-Phase 3: Quality Assurance       ░░░░░░░░░░  [PLANNED]
+Phase 2: Council of Writers      ██████████  [COMPLETE ✅]
+Phase 3: Quality Assurance       ░░░░░░░░░░  [NEXT UP]
 Phase 4: RAG & Research          ░░░░░░░░░░  [PLANNED]
 Phase 5: Online Research         ░░░░░░░░░░  [PLANNED]
 Phase 6: Writing Enhancement     ░░░░░░░░░░  [PLANNED]
