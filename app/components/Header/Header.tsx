@@ -12,11 +12,13 @@ import {
   WifiOff,
   ChevronDown,
   Users,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
+import { useSearchStore } from '@/lib/store/useSearchStore';
 
 export function Header() {
   const {
@@ -38,6 +40,7 @@ export function Header() {
 
   const { toggleSettings, writingPreset, contextLength, contextUsed } = useSettingsStore();
   const { showCouncilPanel, toggleCouncilPanel, getEnabledReviewers } = useCouncilStore();
+  const { showResearchPanel, toggleResearchPanel, engineStatus } = useSearchStore();
   const enabledReviewersCount = getEnabledReviewers().length;
   
   const [providerStatus, setProviderStatus] = useState<'connected' | 'disconnected' | 'checking'>('checking');
@@ -233,6 +236,22 @@ export function Header() {
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-accent text-white text-[10px] rounded-full flex items-center justify-center">
               {enabledReviewersCount}
             </span>
+          )}
+        </button>
+        
+        <button
+          onClick={toggleResearchPanel}
+          className={cn(
+            'p-1.5 rounded relative',
+            showResearchPanel
+              ? 'bg-accent/20 text-accent'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Research"
+        >
+          <Search className="w-5 h-5" />
+          {(engineStatus.perplexica || engineStatus.searxng) && (
+            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full" />
           )}
         </button>
 

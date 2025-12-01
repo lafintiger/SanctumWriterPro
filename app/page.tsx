@@ -2,9 +2,10 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { EditorView } from '@codemirror/view';
-import { Editor, FileTree, Chat, Header, Preview, Toast, Settings, CouncilPanel } from './components';
+import { Editor, FileTree, Chat, Header, Preview, Toast, Settings, CouncilPanel, ResearchPanel } from './components';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
+import { useSearchStore } from '@/lib/store/useSearchStore';
 import { cn } from '@/lib/utils';
 
 export default function Home() {
@@ -18,6 +19,7 @@ export default function Home() {
   } = useAppStore();
   
   const { showCouncilPanel } = useCouncilStore();
+  const { showResearchPanel } = useSearchStore();
 
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
@@ -122,6 +124,13 @@ export default function Home() {
         {showCouncilPanel && (
           <div className="flex-shrink-0 w-80">
             <CouncilPanel />
+          </div>
+        )}
+        
+        {/* Research Panel */}
+        {showResearchPanel && (
+          <div className="flex-shrink-0">
+            <ResearchPanel />
           </div>
         )}
 

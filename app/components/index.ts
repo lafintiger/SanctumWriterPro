@@ -6,4 +6,5 @@ export { Preview } from './Preview/Preview';
 export { Toast } from './Toast/Toast';
 export { Settings } from './Settings/Settings';
 export { CouncilPanel } from './Council/CouncilPanel';
+export { ResearchPanel } from './Research/ResearchPanel';
 
