@@ -6,6 +6,7 @@
  * 2. Parsing their feedback into structured comments
  * 3. Coordinating sequential or parallel reviews
  * 4. VRAM-aware model loading/unloading between reviewers
+ * 5. Search-based fact verification for QA reviewers
  */
 
 import { Reviewer, ReviewComment } from '@/types/council';
@@ -14,6 +15,101 @@ import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { ensureModelLoaded, getLoadedModels, formatBytes } from '@/lib/llm/modelManager';
 
 const OLLAMA_URL = 'http://localhost:11434';
+
+/**
+ * Verify a claim using search (for Fact Checker integration)
+ */
+export async function verifyClaimWithSearch(claim: string): Promise<{
+  verified: boolean;
+  confidence: number;
+  sources: Array<{ title: string; url: string; snippet: string }>;
+  summary?: string;
+}> {
+  try {
+    const response = await fetch('/api/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        engine: 'searxng',
+        query: claim,
+        generateSummary: false, // Don't need AI summary for verification
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Search failed');
+    }
+    
+    const data = await response.json();
+    const results = data.results || [];
+    
+    // Simple heuristic: if we find related results, claim might be verifiable
+    const hasRelatedResults = results.length > 0;
+    const topResults = results.slice(0, 3);
+    
+    // Check if claim keywords appear in results
+    const claimWords = claim.toLowerCase().split(/\s+/).filter((w: string) => w.length > 4);
+    let matchScore = 0;
+    
+    for (const result of topResults) {
+      const resultText = `${result.title} ${result.snippet}`.toLowerCase();
+      for (const word of claimWords) {
+        if (resultText.includes(word)) {
+          matchScore++;
+        }
+      }
+    }
+    
+    const confidence = Math.min(matchScore / (claimWords.length * 2), 1);
+    
+    return {
+      verified: hasRelatedResults && confidence > 0.3,
+      confidence,
+      sources: topResults.map((r: any) => ({
+        title: r.title,
+        url: r.url,
+        snippet: r.snippet,
+      })),
+    };
+  } catch (error) {
+    console.error('Claim verification failed:', error);
+    return {
+      verified: false,
+      confidence: 0,
+      sources: [],
+    };
+  }
+}
+
+/**
+ * Extract claims from text that should be verified
+ */
+export function extractVerifiableClaims(text: string): string[] {
+  const claims: string[] = [];
+  
+  // Patterns that indicate verifiable claims
+  const patterns = [
+    // Statistics
+    /(?:\d+(?:\.\d+)?%\s+(?:of\s+)?[\w\s]+)/gi,
+    // "Studies show", "Research indicates", etc.
+    /(?:studies?\s+(?:show|indicate|suggest|found|reveal)|research\s+(?:shows?|indicates?|suggests?|found|reveals?))[^.]+\./gi,
+    // "According to"
+    /according\s+to\s+[^,]+,[^.]+\./gi,
+    // Specific numbers/statistics
+    /(?:approximately|about|nearly|over|more than|less than)\s+\d+[\w\s]+/gi,
+    // Named experts/authorities
+    /(?:dr\.|professor|expert|scientist|researcher)\s+[\w\s]+\s+(?:said|stated|claimed|noted|found)/gi,
+  ];
+  
+  for (const pattern of patterns) {
+    const matches = text.match(pattern);
+    if (matches) {
+      claims.push(...matches.map(m => m.trim()));
+    }
+  }
+  
+  return [...new Set(claims)]; // Remove duplicates
+}
 
 // Track the last model we used to optimize swapping
 let lastUsedModel: string | null = null;
