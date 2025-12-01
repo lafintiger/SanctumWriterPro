@@ -7,8 +7,37 @@ export interface ExportOptions {
   title: string;
   author?: string;
   includeTitle?: boolean;
+  includeTableOfContents?: boolean;
   pageSize?: 'A4' | 'Letter';
   margin?: number;
+}
+
+// Generate table of contents from markdown headings
+function generateTableOfContents(markdown: string): string {
+  const lines = markdown.split('\n');
+  const tocItems: { level: number; text: string; slug: string }[] = [];
+  
+  for (const line of lines) {
+    const match = line.match(/^(#{1,3})\s+(.+)$/);
+    if (match) {
+      const level = match[1].length;
+      const text = match[2].trim();
+      const slug = text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      tocItems.push({ level, text, slug });
+    }
+  }
+  
+  if (tocItems.length === 0) return '';
+  
+  let tocHtml = '<div class="table-of-contents"><h2>Table of Contents</h2><ul>';
+  
+  for (const item of tocItems) {
+    const indent = '  '.repeat(item.level - 1);
+    tocHtml += `${indent}<li style="margin-left: ${(item.level - 1) * 1.5}em"><a href="#${item.slug}">${item.text}</a></li>\n`;
+  }
+  
+  tocHtml += '</ul></div><hr>';
+  return tocHtml;
 }
 
 // Convert markdown to HTML for export
@@ -106,6 +135,7 @@ export function exportAsHtml(content: string, options: ExportOptions): void {
 // Export as PDF using browser print
 export function exportAsPdf(content: string, options: ExportOptions): void {
   const html = markdownToHtml(content);
+  const toc = options.includeTableOfContents ? generateTableOfContents(content) : '';
   
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
@@ -175,8 +205,14 @@ export function exportAsPdf(content: string, options: ExportOptions): void {
     th { background: #f0f0f0; }
     img { max-width: 100%; height: auto; }
     hr { border: none; border-top: 1pt solid #999; margin: 2em 0; }
-    .title-page { text-align: center; padding-top: 30%; }
+    .title-page { text-align: center; padding-top: 30%; page-break-after: always; }
     .title-page h1 { border: none; }
+    .table-of-contents { page-break-after: always; }
+    .table-of-contents h2 { font-size: 18pt; margin-bottom: 1em; }
+    .table-of-contents ul { list-style: none; padding-left: 0; }
+    .table-of-contents li { margin: 0.5em 0; }
+    .table-of-contents a { text-decoration: none; color: #333; }
+    .table-of-contents a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -185,8 +221,8 @@ export function exportAsPdf(content: string, options: ExportOptions): void {
     <h1>${options.title}</h1>
     ${options.author ? `<p><em>By ${options.author}</em></p>` : ''}
   </div>
-  <hr>
   ` : ''}
+  ${toc}
   ${html}
 </body>
 </html>`);

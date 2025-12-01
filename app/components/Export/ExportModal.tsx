@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   X, 
   Download, 
@@ -8,9 +8,12 @@ import {
   FileType,
   File,
   Loader2,
+  BookOpen,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useProjectStore } from '@/lib/store/useProjectStore';
+import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { 
   exportDocument, 
   ExportFormat, 
@@ -21,44 +24,100 @@ import {
 interface ExportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  isProjectExport?: boolean;
 }
 
-export function ExportModal({ isOpen, onClose }: ExportModalProps) {
+export function ExportModal({ isOpen, onClose, isProjectExport = false }: ExportModalProps) {
   const { currentDocument, showToast } = useAppStore();
+  const { activeProject } = useProjectStore();
+  const { workspacePath } = useSettingsStore();
   
   const [format, setFormat] = useState<ExportFormat>('pdf');
-  const [title, setTitle] = useState(currentDocument?.name.replace(/\.md$/, '') || 'Document');
-  const [author, setAuthor] = useState('');
+  const [title, setTitle] = useState(
+    isProjectExport 
+      ? activeProject?.config.title || 'Project'
+      : currentDocument?.name.replace(/\.md$/, '') || 'Document'
+  );
+  const [author, setAuthor] = useState(activeProject?.config.author || '');
   const [includeTitle, setIncludeTitle] = useState(true);
+  const [includeTableOfContents, setIncludeTableOfContents] = useState(isProjectExport);
   const [pageSize, setPageSize] = useState<'A4' | 'Letter'>('A4');
   const [isExporting, setIsExporting] = useState(false);
   
-  // Update title when document changes
-  React.useEffect(() => {
-    if (currentDocument) {
+  // Update title when document/project changes
+  useEffect(() => {
+    if (isProjectExport && activeProject) {
+      setTitle(activeProject.config.title);
+      setAuthor(activeProject.config.author || '');
+    } else if (currentDocument) {
       setTitle(currentDocument.name.replace(/\.md$/, ''));
     }
-  }, [currentDocument]);
+  }, [currentDocument, activeProject, isProjectExport]);
   
   if (!isOpen) return null;
   
-  const handleExport = async () => {
-    if (!currentDocument) {
-      showToast('No document to export', 'error');
-      return;
+  // Fetch combined project content
+  const fetchProjectContent = async (): Promise<string> => {
+    if (!activeProject) throw new Error('No project loaded');
+    
+    const contents: string[] = [];
+    
+    for (const doc of activeProject.documents) {
+      try {
+        const url = workspacePath
+          ? `/api/files/${doc.path}?workspace=${encodeURIComponent(workspacePath)}`
+          : `/api/files/${doc.path}`;
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          // Add section break between documents
+          if (contents.length > 0) {
+            contents.push('\n\n---\n\n');
+          }
+          // Add document title as heading if not starting with #
+          const content = data.content || '';
+          if (!content.trim().startsWith('#')) {
+            contents.push(`# ${doc.title || doc.path.replace(/\.md$/, '')}\n\n`);
+          }
+          contents.push(content);
+        }
+      } catch (error) {
+        console.error(`Failed to fetch ${doc.path}:`, error);
+      }
     }
     
+    return contents.join('');
+  };
+  
+  const handleExport = async () => {
     setIsExporting(true);
     
     try {
+      let content: string;
+      
+      if (isProjectExport) {
+        content = await fetchProjectContent();
+        if (!content.trim()) {
+          showToast('No content to export', 'error');
+          return;
+        }
+      } else {
+        if (!currentDocument) {
+          showToast('No document to export', 'error');
+          return;
+        }
+        content = currentDocument.content;
+      }
+      
       const options: ExportOptions = {
         title,
         author: author || undefined,
         includeTitle,
+        includeTableOfContents,
         pageSize,
       };
       
-      await exportDocument(currentDocument.content, format, options);
+      await exportDocument(content, format, options);
       showToast(`Exported as ${format.toUpperCase()}`, 'success');
       onClose();
     } catch (error) {
@@ -82,8 +141,14 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
-            <Download className="w-5 h-5 text-accent" />
-            <h3 className="text-lg font-semibold text-text-primary">Export Document</h3>
+            {isProjectExport ? (
+              <BookOpen className="w-5 h-5 text-accent" />
+            ) : (
+              <Download className="w-5 h-5 text-accent" />
+            )}
+            <h3 className="text-lg font-semibold text-text-primary">
+              {isProjectExport ? 'Export Project' : 'Export Document'}
+            </h3>
           </div>
           <button
             onClick={onClose}
@@ -149,8 +214,20 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
             />
           </div>
           
+          {/* Project info */}
+          {isProjectExport && activeProject && (
+            <div className="p-3 bg-accent/10 rounded border border-accent/30">
+              <div className="text-sm text-accent font-medium mb-1">
+                Project: {activeProject.config.title}
+              </div>
+              <div className="text-xs text-text-secondary">
+                {activeProject.documents.length} documents • {activeProject.totalWordCount.toLocaleString()} words
+              </div>
+            </div>
+          )}
+          
           {/* Options */}
-          <div className="flex items-center gap-4">
+          <div className="space-y-2">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -160,6 +237,18 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
               />
               <span className="text-sm text-text-primary">Include title page</span>
             </label>
+            
+            {isProjectExport && (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={includeTableOfContents}
+                  onChange={(e) => setIncludeTableOfContents(e.target.checked)}
+                  className="w-4 h-4 rounded border-border text-accent focus:ring-accent"
+                />
+                <span className="text-sm text-text-primary">Include table of contents</span>
+              </label>
+            )}
           </div>
           
           {/* Page size (for PDF) */}
@@ -198,7 +287,7 @@ export function ExportModal({ isOpen, onClose }: ExportModalProps) {
           </button>
           <button
             onClick={handleExport}
-            disabled={isExporting || !currentDocument}
+            disabled={isExporting || (isProjectExport ? !activeProject : !currentDocument)}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-accent hover:bg-accent/80 text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isExporting ? (

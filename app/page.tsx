@@ -10,6 +10,7 @@ import { PromptLibraryPanel } from './components/PromptLibrary/PromptLibraryPane
 import { KnowledgeBasePanel } from './components/KnowledgeBase/KnowledgeBasePanel';
 import { SessionMemoryPanel } from './components/SessionMemory/SessionMemoryPanel';
 import { CitationPanel } from './components/Citations/CitationPanel';
+import { ExportModal } from './components/Export/ExportModal';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
@@ -61,7 +62,20 @@ export default function Home() {
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
   const [isResizingChat, setIsResizingChat] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [isProjectExport, setIsProjectExport] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Listen for project export event
+  useEffect(() => {
+    const handleProjectExport = () => {
+      setIsProjectExport(true);
+      setShowExportModal(true);
+    };
+    
+    window.addEventListener('sanctum-export-project', handleProjectExport);
+    return () => window.removeEventListener('sanctum-export-project', handleProjectExport);
+  }, []);
 
   const handleEditorReady = useCallback((view: EditorView) => {
     setEditorView(view);
@@ -275,6 +289,16 @@ export default function Home() {
       
       {/* Settings modal */}
       <Settings />
+      
+      {/* Export modal */}
+      <ExportModal 
+        isOpen={showExportModal}
+        onClose={() => {
+          setShowExportModal(false);
+          setIsProjectExport(false);
+        }}
+        isProjectExport={isProjectExport}
+      />
     </div>
   );
 }
