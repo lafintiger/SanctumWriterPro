@@ -4,6 +4,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { EditorView } from '@codemirror/view';
 import { Editor, FileTree, Chat, Header, Preview, Toast, Settings, CouncilPanel, ResearchPanel } from './components';
 import { WorkflowPanel } from './components/Workflow/WorkflowPanel';
+import { WritingStatsBar } from './components/Editor/WritingStatsBar';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
@@ -18,11 +19,31 @@ export default function Home() {
     showPreview,
     setSidebarWidth,
     setChatPanelWidth,
+    focusMode,
+    toggleFocusMode,
   } = useAppStore();
   
   const { showCouncilPanel } = useCouncilStore();
   const { showResearchPanel } = useSearchStore();
   const { showWorkflowPanel } = useWorkflowStore();
+  
+  // Keyboard shortcuts for focus mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // F11 or Cmd/Ctrl+Shift+F for focus mode
+      if (e.key === 'F11' || (e.key === 'f' && (e.metaKey || e.ctrlKey) && e.shiftKey)) {
+        e.preventDefault();
+        toggleFocusMode();
+      }
+      // Escape to exit focus mode
+      if (e.key === 'Escape' && focusMode) {
+        toggleFocusMode();
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [focusMode, toggleFocusMode]);
 
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [isResizingSidebar, setIsResizingSidebar] = useState(false);
@@ -83,14 +104,17 @@ export default function Home() {
   }, [isResizingSidebar, isResizingChat, setSidebarWidth, setChatPanelWidth]);
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden" ref={containerRef}>
-      {/* Header */}
-      <Header />
+    <div className={cn(
+      "h-screen flex flex-col overflow-hidden",
+      focusMode && "focus-mode"
+    )} ref={containerRef}>
+      {/* Header - hidden in focus mode */}
+      {!focusMode && <Header />}
 
       {/* Main content */}
       <div className="flex-1 flex min-h-0">
-        {/* Sidebar */}
-        {sidebarWidth > 0 && (
+        {/* Sidebar - hidden in focus mode */}
+        {sidebarWidth > 0 && !focusMode && (
           <>
             <div
               className="flex-shrink-0 border-r border-border"
@@ -106,46 +130,52 @@ export default function Home() {
         )}
 
         {/* Editor area */}
-        <div className="flex-1 flex min-w-0">
-          {/* Editor */}
-          <div className={cn(
-            'flex-1 flex flex-col min-w-0',
-            showPreview && 'border-r border-border'
-          )}>
-            <Editor onEditorReady={handleEditorReady} />
-          </div>
-
-          {/* Preview */}
-          {showPreview && (
-            <div className="flex-1 min-w-0">
-              <Preview />
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Editor row */}
+          <div className="flex-1 flex min-h-0">
+            {/* Editor */}
+            <div className={cn(
+              'flex-1 flex flex-col min-w-0',
+              showPreview && !focusMode && 'border-r border-border'
+            )}>
+              <Editor onEditorReady={handleEditorReady} />
             </div>
-          )}
+
+            {/* Preview - hidden in focus mode */}
+            {showPreview && !focusMode && (
+              <div className="flex-1 min-w-0">
+                <Preview />
+              </div>
+            )}
+          </div>
+          
+          {/* Writing Stats Bar */}
+          <WritingStatsBar />
         </div>
 
-        {/* Council Panel */}
-        {showCouncilPanel && (
+        {/* Council Panel - hidden in focus mode */}
+        {showCouncilPanel && !focusMode && (
           <div className="flex-shrink-0 w-80">
             <CouncilPanel />
           </div>
         )}
         
-        {/* Research Panel */}
-        {showResearchPanel && (
+        {/* Research Panel - hidden in focus mode */}
+        {showResearchPanel && !focusMode && (
           <div className="flex-shrink-0">
             <ResearchPanel />
           </div>
         )}
         
-        {/* Workflow Panel */}
-        {showWorkflowPanel && (
+        {/* Workflow Panel - hidden in focus mode */}
+        {showWorkflowPanel && !focusMode && (
           <div className="flex-shrink-0">
             <WorkflowPanel />
           </div>
         )}
 
-        {/* Chat panel */}
-        {showChat && (
+        {/* Chat panel - hidden in focus mode */}
+        {showChat && !focusMode && (
           <>
             <div
               className="resize-handle resize-handle-vertical left-0"
@@ -160,6 +190,13 @@ export default function Home() {
           </>
         )}
       </div>
+
+      {/* Focus mode exit hint */}
+      {focusMode && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 px-4 py-2 bg-sidebar-bg/90 backdrop-blur border border-border rounded-full text-xs text-text-secondary opacity-0 hover:opacity-100 transition-opacity">
+          Press <kbd className="px-1.5 py-0.5 bg-border rounded mx-1">Esc</kbd> or <kbd className="px-1.5 py-0.5 bg-border rounded mx-1">F11</kbd> to exit focus mode
+        </div>
+      )}
 
       {/* Toast notifications */}
       <Toast />

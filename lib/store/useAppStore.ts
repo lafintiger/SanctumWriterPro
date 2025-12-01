@@ -29,11 +29,14 @@ interface AppState {
   chatPanelWidth: number;
   showPreview: boolean;
   showChat: boolean;
+  focusMode: boolean;
   
   setSidebarWidth: (width: number) => void;
   setChatPanelWidth: (width: number) => void;
   togglePreview: () => void;
   toggleChat: () => void;
+  toggleFocusMode: () => void;
+  setFocusMode: (enabled: boolean) => void;
   
   // LLM Settings
   provider: 'ollama' | 'lmstudio';
@@ -114,11 +117,14 @@ export const useAppStore = create<AppState>()(
       chatPanelWidth: 360,
       showPreview: false,
       showChat: true,
+      focusMode: false,
       
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
       setChatPanelWidth: (width) => set({ chatPanelWidth: width }),
       togglePreview: () => set((state) => ({ showPreview: !state.showPreview })),
       toggleChat: () => set((state) => ({ showChat: !state.showChat })),
+      toggleFocusMode: () => set((state) => ({ focusMode: !state.focusMode })),
+      setFocusMode: (enabled) => set({ focusMode: enabled }),
       
       // LLM Settings - Default to qwen3:latest
       provider: 'ollama',

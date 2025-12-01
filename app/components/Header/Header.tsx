@@ -14,6 +14,7 @@ import {
   Users,
   Search,
   ListChecks,
+  Focus,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
@@ -38,6 +39,8 @@ export function Header() {
     setAvailableModels,
     sidebarWidth,
     setSidebarWidth,
+    focusMode,
+    toggleFocusMode,
   } = useAppStore();
 
   const { toggleSettings, writingPreset, contextLength, contextUsed } = useSettingsStore();
@@ -278,6 +281,19 @@ export function Header() {
           {workflowProgress && workflowProgress.percentage === 100 && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full" />
           )}
+        </button>
+        
+        <button
+          onClick={toggleFocusMode}
+          className={cn(
+            'p-1.5 rounded',
+            focusMode
+              ? 'bg-accent/20 text-accent'
+              : 'hover:bg-border text-text-secondary hover:text-text-primary'
+          )}
+          title="Focus Mode (F11)"
+        >
+          <Focus className="w-5 h-5" />
         </button>
 
         <button
