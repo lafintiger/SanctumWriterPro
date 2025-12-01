@@ -25,7 +25,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
-import { useSettingsStore } from '@/lib/store/useSettingsStore';
+import { useSettingsStore, CLOUD_PROVIDERS } from '@/lib/store/useSettingsStore';
+import { isCloudProvider, LLMProviderType } from '@/types/llm';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { useSearchStore } from '@/lib/store/useSearchStore';
 import { useWorkflowStore } from '@/lib/store/useWorkflowStore';
@@ -56,7 +57,7 @@ export function Header() {
     toggleFocusMode,
   } = useAppStore();
 
-  const { toggleSettings, writingPreset, contextLength, contextUsed } = useSettingsStore();
+  const { toggleSettings, writingPreset, contextLength, contextUsed, apiKeys, hasAPIKey } = useSettingsStore();
   const { showCouncilPanel, toggleCouncilPanel, getEnabledReviewers } = useCouncilStore();
   const { showResearchPanel, toggleResearchPanel, engineStatus } = useSearchStore();
   const { showWorkflowPanel, toggleWorkflowPanel, getProgress } = useWorkflowStore();
@@ -91,7 +92,19 @@ export function Header() {
   const checkProviderStatus = useCallback(async () => {
     setProviderStatus('checking');
     try {
-      const response = await fetch(`/api/models?provider=${provider}`);
+      // For cloud providers, include API key
+      let url = `/api/models?provider=${provider}`;
+      if (isCloudProvider(provider as LLMProviderType)) {
+        const providerConfig = CLOUD_PROVIDERS.find(p => p.id === provider);
+        if (providerConfig) {
+          const apiKey = apiKeys[providerConfig.apiKeyName];
+          if (apiKey) {
+            url += `&apiKey=${encodeURIComponent(apiKey)}`;
+          }
+        }
+      }
+      
+      const response = await fetch(url);
       const data = await response.json();
       
       if (data.available) {
@@ -110,7 +123,7 @@ export function Header() {
       setProviderStatus('disconnected');
       setAvailableModels([]);
     }
-  }, [provider, model, setAvailableModels, setModel]);
+  }, [provider, model, setAvailableModels, setModel, apiKeys]);
 
   useEffect(() => {
     checkProviderStatus();
@@ -141,6 +154,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <FileText className="w-5 h-5 text-accent" />
           <span className="font-semibold text-text-primary">SanctumWriter</span>
+          <span className="text-xs font-bold px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">PRO</span>
         </div>
 
         {currentDocument && (
@@ -173,7 +187,11 @@ export function Header() {
           </button>
 
           {showProviderMenu && (
-            <div className="absolute top-full left-0 mt-1 bg-sidebar-bg border border-border rounded shadow-lg z-50">
+            <div className="absolute top-full left-0 mt-1 bg-sidebar-bg border border-border rounded shadow-lg z-50 min-w-[200px]">
+              {/* Local Providers */}
+              <div className="px-3 py-1.5 text-xs text-text-secondary uppercase tracking-wider border-b border-border">
+                Local (Free)
+              </div>
               {(['ollama', 'lmstudio'] as const).map((p) => (
                 <button
                   key={p}
@@ -182,13 +200,41 @@ export function Header() {
                     setShowProviderMenu(false);
                   }}
                   className={cn(
-                    'w-full px-4 py-2 text-left text-sm hover:bg-border capitalize',
+                    'w-full px-4 py-2 text-left text-sm hover:bg-border',
                     provider === p ? 'text-accent' : 'text-text-primary'
                   )}
                 >
-                  {p === 'lmstudio' ? 'LM Studio' : p}
+                  {p === 'lmstudio' ? 'LM Studio' : 'Ollama'}
                 </button>
               ))}
+              
+              {/* Cloud Providers */}
+              <div className="px-3 py-1.5 text-xs text-text-secondary uppercase tracking-wider border-t border-b border-border flex items-center gap-1">
+                <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-[10px] px-1 rounded">PRO</span>
+                Cloud
+              </div>
+              {CLOUD_PROVIDERS.map((cp) => {
+                const hasKey = hasAPIKey(cp.apiKeyName);
+                return (
+                  <button
+                    key={cp.id}
+                    onClick={() => {
+                      setProvider(cp.id as any);
+                      setShowProviderMenu(false);
+                    }}
+                    className={cn(
+                      'w-full px-4 py-2 text-left text-sm hover:bg-border flex items-center justify-between',
+                      provider === cp.id ? 'text-accent' : 'text-text-primary',
+                      !hasKey && 'opacity-50'
+                    )}
+                  >
+                    <span>{cp.name}</span>
+                    {!hasKey && (
+                      <span className="text-xs text-yellow-500">Need API Key</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>

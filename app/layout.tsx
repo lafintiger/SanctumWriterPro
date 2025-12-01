@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'SanctumWriter',
-  description: 'Your private sanctuary for writing with local AI - powered by Ollama & LM Studio',
+  title: 'SanctumWriter Pro',
+  description: 'AI writing companion powered by frontier models - GPT-4, Claude, Gemini, Grok & more',
 };
 
 export default function RootLayout({

@@ -221,6 +221,74 @@ export const DEFAULT_SERVICE_URLS: ServiceURLs = {
   searxng: 'http://localhost:4000',
 };
 
+// Cloud Provider API Keys (Pro Feature)
+export interface APIKeys {
+  openrouter: string;
+  openai: string;
+  anthropic: string;
+  google: string;
+  xai: string;
+}
+
+export const DEFAULT_API_KEYS: APIKeys = {
+  openrouter: '',
+  openai: '',
+  anthropic: '',
+  google: '',
+  xai: '',
+};
+
+// Cloud provider configurations
+export interface CloudProvider {
+  id: string;
+  name: string;
+  apiKeyName: keyof APIKeys;
+  baseUrl: string;
+  description: string;
+  modelsEndpoint?: string;
+}
+
+export const CLOUD_PROVIDERS: CloudProvider[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    apiKeyName: 'openrouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    description: '100+ models (GPT-4, Claude, Llama, Mistral) via one API',
+    modelsEndpoint: '/models',
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    apiKeyName: 'openai',
+    baseUrl: 'https://api.openai.com/v1',
+    description: 'GPT-4o, GPT-4, GPT-3.5 Turbo',
+    modelsEndpoint: '/models',
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    apiKeyName: 'anthropic',
+    baseUrl: 'https://api.anthropic.com/v1',
+    description: 'Claude 3.5 Sonnet, Claude 3 Opus, Haiku',
+  },
+  {
+    id: 'google',
+    name: 'Google AI',
+    apiKeyName: 'google',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    description: 'Gemini Pro, Gemini Ultra',
+  },
+  {
+    id: 'xai',
+    name: 'xAI',
+    apiKeyName: 'xai',
+    baseUrl: 'https://api.x.ai/v1',
+    description: 'Grok models',
+    modelsEndpoint: '/models',
+  },
+];
+
 interface SettingsState {
   // Writing settings
   writingPreset: WritingPreset;
@@ -239,6 +307,9 @@ interface SettingsState {
   
   // Service URLs
   serviceURLs: ServiceURLs;
+  
+  // API Keys (Pro Feature)
+  apiKeys: APIKeys;
   
   // Workspace
   workspacePath: string;
@@ -261,6 +332,10 @@ interface SettingsState {
   setHardwareInfo: (info: HardwareInfo) => void;
   setServiceURL: (service: keyof ServiceURLs, url: string) => void;
   resetServiceURLs: () => void;
+  setAPIKey: (provider: keyof APIKeys, key: string) => void;
+  clearAPIKey: (provider: keyof APIKeys) => void;
+  getAPIKey: (provider: keyof APIKeys) => string;
+  hasAPIKey: (provider: keyof APIKeys) => boolean;
   setWorkspacePath: (path: string) => void;
   setContextUsed: (used: number) => void;
   toggleSettings: () => void;
@@ -334,6 +409,8 @@ export const useSettingsStore = create<SettingsState>()(
       
       serviceURLs: { ...DEFAULT_SERVICE_URLS },
       
+      apiKeys: { ...DEFAULT_API_KEYS },
+      
       workspacePath: './documents',
       
       contextUsed: 0,
@@ -363,6 +440,14 @@ export const useSettingsStore = create<SettingsState>()(
         serviceURLs: { ...state.serviceURLs, [service]: url },
       })),
       resetServiceURLs: () => set({ serviceURLs: { ...DEFAULT_SERVICE_URLS } }),
+      setAPIKey: (provider, key) => set((state) => ({
+        apiKeys: { ...state.apiKeys, [provider]: key },
+      })),
+      clearAPIKey: (provider) => set((state) => ({
+        apiKeys: { ...state.apiKeys, [provider]: '' },
+      })),
+      getAPIKey: (provider) => get().apiKeys[provider],
+      hasAPIKey: (provider) => !!get().apiKeys[provider],
       setWorkspacePath: (workspacePath) => set({ workspacePath }),
       setContextUsed: (contextUsed) => set({ contextUsed }),
       toggleSettings: () => set((state) => ({ showSettings: !state.showSettings })),
@@ -476,7 +561,7 @@ export const useSettingsStore = create<SettingsState>()(
       },
     }),
     {
-      name: 'sanctum-writer-settings',
+      name: 'sanctum-writer-pro-settings',
       partialize: (state) => ({
         writingPreset: state.writingPreset,
         temperature: state.temperature,
@@ -486,6 +571,7 @@ export const useSettingsStore = create<SettingsState>()(
         contextLength: state.contextLength,
         hardwareInfo: state.hardwareInfo, // Persist hardware selection
         serviceURLs: state.serviceURLs, // Persist service URLs
+        apiKeys: state.apiKeys, // Persist API keys (Pro feature)
         workspacePath: state.workspacePath, // Persist workspace path
       }),
     }

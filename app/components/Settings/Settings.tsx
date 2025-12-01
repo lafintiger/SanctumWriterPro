@@ -24,7 +24,7 @@ import {
   FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useSettingsStore, WRITING_PRESETS, WritingPreset, GPU_PRESETS, getOptimalSettingsForTier, DEFAULT_SERVICE_URLS, ServiceURLs } from '@/lib/store/useSettingsStore';
+import { useSettingsStore, WRITING_PRESETS, WritingPreset, GPU_PRESETS, getOptimalSettingsForTier, DEFAULT_SERVICE_URLS, ServiceURLs, CLOUD_PROVIDERS, APIKeys } from '@/lib/store/useSettingsStore';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { Reviewer, DEFAULT_REVIEWERS, ReviewerRole } from '@/types/council';
@@ -60,10 +60,13 @@ export function Settings() {
     optimizeForWriting,
     workspacePath,
     setWorkspacePath,
+    apiKeys,
+    setAPIKey,
+    clearAPIKey,
   } = useSettingsStore();
 
   const { provider, model } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware' | 'council' | 'services' | 'workspace'>('writing');
+  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware' | 'council' | 'services' | 'workspace' | 'apikeys'>('writing');
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [isDetectingHardware, setIsDetectingHardware] = useState(false);
   
@@ -211,6 +214,7 @@ export function Settings() {
         {/* Tabs */}
         <div className="flex border-b border-border overflow-x-auto">
           {[
+            { id: 'apikeys', label: 'API Keys', icon: Zap, pro: true },
             { id: 'workspace', label: 'Workspace', icon: FolderOpen },
             { id: 'writing', label: 'Writing Style', icon: BookOpen },
             { id: 'model', label: 'Model', icon: Sliders },
@@ -230,12 +234,110 @@ export function Settings() {
             >
               <tab.icon className="w-4 h-4" />
               {tab.label}
+              {'pro' in tab && tab.pro && (
+                <span className="text-[10px] font-bold px-1 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">PRO</span>
+              )}
             </button>
           ))}
         </div>
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
+          {/* API Keys Tab (Pro Feature) */}
+          {activeTab === 'apikeys' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-base font-semibold text-text-primary mb-2 flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-accent" />
+                  Cloud Provider API Keys
+                  <span className="text-xs font-bold px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded">PRO</span>
+                </h3>
+                <p className="text-sm text-text-secondary mb-6">
+                  Add API keys to access frontier models from cloud providers. Your keys are stored locally and never sent to our servers.
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                {CLOUD_PROVIDERS.map((provider) => (
+                  <div key={provider.id} className="p-4 bg-editor-bg rounded-lg border border-border">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h4 className="font-medium text-text-primary">{provider.name}</h4>
+                        <p className="text-xs text-text-secondary">{provider.description}</p>
+                      </div>
+                      {apiKeys[provider.apiKeyName] && (
+                        <button
+                          onClick={() => clearAPIKey(provider.apiKeyName)}
+                          className="p-1.5 text-red-500 hover:bg-red-500/10 rounded"
+                          title="Remove API key"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        value={apiKeys[provider.apiKeyName]}
+                        onChange={(e) => setAPIKey(provider.apiKeyName, e.target.value)}
+                        placeholder={`Enter ${provider.name} API key...`}
+                        className="flex-1 px-3 py-2 bg-sidebar-bg border border-border rounded text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
+                      />
+                      {apiKeys[provider.apiKeyName] && (
+                        <span className="flex items-center gap-1 px-2 text-green-500 text-xs">
+                          <Check className="w-3 h-3" /> Saved
+                        </span>
+                      )}
+                    </div>
+                    {provider.id === 'openrouter' && (
+                      <p className="mt-2 text-xs text-text-secondary">
+                        <a href="https://openrouter.ai/keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          Get an OpenRouter API key →
+                        </a>
+                        {' '}(Recommended: Access 100+ models with one key)
+                      </p>
+                    )}
+                    {provider.id === 'openai' && (
+                      <p className="mt-2 text-xs text-text-secondary">
+                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          Get an OpenAI API key →
+                        </a>
+                      </p>
+                    )}
+                    {provider.id === 'anthropic' && (
+                      <p className="mt-2 text-xs text-text-secondary">
+                        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          Get an Anthropic API key →
+                        </a>
+                      </p>
+                    )}
+                    {provider.id === 'google' && (
+                      <p className="mt-2 text-xs text-text-secondary">
+                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          Get a Google AI API key →
+                        </a>
+                      </p>
+                    )}
+                    {provider.id === 'xai' && (
+                      <p className="mt-2 text-xs text-text-secondary">
+                        <a href="https://console.x.ai/" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                          Get an xAI API key →
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              
+              <div className="p-4 bg-accent/10 rounded-lg border border-accent/30">
+                <h4 className="font-medium text-accent mb-2">🔒 Privacy Note</h4>
+                <p className="text-sm text-text-secondary">
+                  API keys are stored locally in your browser's localStorage. They are only sent directly to the respective provider's API when you use their models. We never see or store your keys.
+                </p>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'workspace' && (
             <div className="space-y-6">
               <div>

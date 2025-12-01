@@ -134,6 +134,18 @@ export function formatToolsForLMStudio(tools: ToolDefinition[]) {
   }));
 }
 
+// OpenAI format (also used by OpenRouter, xAI)
+export function formatToolsForOpenAI(tools: ToolDefinition[]) {
+  return tools.map((tool) => ({
+    type: 'function',
+    function: {
+      name: tool.name,
+      description: tool.description,
+      parameters: tool.parameters,
+    },
+  }));
+}
+
 export interface WorkflowContext {
   currentStage: string;
   stageLabel: string;

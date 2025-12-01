@@ -1,8 +1,17 @@
-import { LLMMessage, LLMProviderType, StreamCallbacks } from '@/types';
-import { documentTools, formatToolsForOllama, formatToolsForLMStudio } from './tools';
+import { LLMMessage, LLMProviderType, StreamCallbacks, isCloudProvider } from '@/types';
+import { documentTools, formatToolsForOllama, formatToolsForLMStudio, formatToolsForOpenAI } from './tools';
 
 const OLLAMA_URL = 'http://localhost:11434';
 const LMSTUDIO_URL = 'http://localhost:1234';
+
+// Cloud provider base URLs
+const CLOUD_URLS = {
+  openrouter: 'https://openrouter.ai/api/v1',
+  openai: 'https://api.openai.com/v1',
+  anthropic: 'https://api.anthropic.com/v1',
+  google: 'https://generativelanguage.googleapis.com/v1beta',
+  xai: 'https://api.x.ai/v1',
+};
 
 export interface LLMOptions {
   temperature?: number;
@@ -62,13 +71,22 @@ export async function streamChat(
   messages: LLMMessage[],
   callbacks: StreamCallbacks,
   useTools: boolean = true,
-  options: LLMOptions = {}
+  options: LLMOptions = {},
+  apiKey?: string
 ): Promise<void> {
   try {
     if (provider === 'ollama') {
       await streamOllamaChat(model, messages, callbacks, useTools, options);
-    } else {
+    } else if (provider === 'lmstudio') {
       await streamLMStudioChat(model, messages, callbacks, useTools, options);
+    } else if (isCloudProvider(provider)) {
+      // Cloud providers require API key
+      if (!apiKey) {
+        throw new Error(`API key required for ${provider}`);
+      }
+      await streamCloudChat(provider, model, messages, callbacks, useTools, options, apiKey);
+    } else {
+      throw new Error(`Unknown provider: ${provider}`);
     }
   } catch (error) {
     callbacks.onError(error instanceof Error ? error : new Error('Unknown error'));
@@ -277,6 +295,299 @@ async function streamLMStudioChat(
       }
     }
   }
+}
+
+// Cloud provider streaming (OpenRouter, OpenAI, Anthropic, xAI, Google)
+async function streamCloudChat(
+  provider: 'openrouter' | 'openai' | 'anthropic' | 'google' | 'xai',
+  model: string,
+  messages: LLMMessage[],
+  callbacks: StreamCallbacks,
+  useTools: boolean,
+  options: LLMOptions = {},
+  apiKey: string
+): Promise<void> {
+  // Anthropic has a different API format
+  if (provider === 'anthropic') {
+    await streamAnthropicChat(model, messages, callbacks, options, apiKey);
+    return;
+  }
+  
+  // Google Gemini has its own format
+  if (provider === 'google') {
+    await streamGoogleChat(model, messages, callbacks, options, apiKey);
+    return;
+  }
+  
+  // OpenRouter, OpenAI, and xAI all use OpenAI-compatible format
+  const baseUrl = CLOUD_URLS[provider];
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${apiKey}`,
+  };
+  
+  // OpenRouter specific headers
+  if (provider === 'openrouter') {
+    headers['HTTP-Referer'] = 'https://sanctumwriter.app';
+    headers['X-Title'] = 'SanctumWriter Pro';
+  }
+  
+  const body: Record<string, unknown> = {
+    model,
+    messages,
+    stream: true,
+    temperature: options.temperature ?? 0.7,
+    top_p: options.topP ?? 0.9,
+    max_tokens: options.contextLength ?? 4096,
+  };
+  
+  if (useTools) {
+    body.tools = formatToolsForOpenAI(documentTools);
+    body.tool_choice = 'auto';
+  }
+  
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`${provider} error: ${response.status} - ${errorText}`);
+  }
+  
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let toolCallBuffer: { name: string; arguments: string } | null = null;
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (!line.trim() || line.startsWith(':')) continue;
+      if (line === 'data: [DONE]') {
+        if (toolCallBuffer && toolCallBuffer.arguments) {
+          try {
+            callbacks.onToolCall({
+              name: toolCallBuffer.name,
+              arguments: JSON.parse(toolCallBuffer.arguments),
+            });
+          } catch (e) {
+            console.error('Error parsing tool arguments:', e);
+          }
+        }
+        callbacks.onComplete();
+        return;
+      }
+      
+      const data = line.replace(/^data: /, '');
+      if (!data) continue;
+      
+      try {
+        const parsed = JSON.parse(data);
+        const delta = parsed.choices?.[0]?.delta;
+        
+        if (delta?.content) {
+          callbacks.onToken(delta.content);
+        }
+        
+        if (delta?.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            if (tc.function?.name) {
+              toolCallBuffer = { name: tc.function.name, arguments: '' };
+            }
+            if (tc.function?.arguments && toolCallBuffer) {
+              toolCallBuffer.arguments += tc.function.arguments;
+            }
+          }
+        }
+        
+        if (parsed.choices?.[0]?.finish_reason === 'stop' || parsed.choices?.[0]?.finish_reason === 'tool_calls') {
+          callbacks.onComplete();
+        }
+      } catch {
+        // Skip invalid JSON chunks
+      }
+    }
+  }
+}
+
+// Anthropic Claude streaming
+async function streamAnthropicChat(
+  model: string,
+  messages: LLMMessage[],
+  callbacks: StreamCallbacks,
+  options: LLMOptions = {},
+  apiKey: string
+): Promise<void> {
+  // Convert messages to Anthropic format (system message is separate)
+  const systemMessage = messages.find(m => m.role === 'system');
+  const chatMessages = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content,
+    }));
+  
+  const body: Record<string, unknown> = {
+    model,
+    messages: chatMessages,
+    max_tokens: options.contextLength ?? 4096,
+    stream: true,
+  };
+  
+  if (systemMessage) {
+    body.system = systemMessage.content;
+  }
+  
+  const response = await fetch(`${CLOUD_URLS.anthropic}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify(body),
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Anthropic error: ${response.status} - ${errorText}`);
+  }
+  
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (!line.trim() || !line.startsWith('data: ')) continue;
+      
+      const data = line.replace(/^data: /, '');
+      if (!data) continue;
+      
+      try {
+        const parsed = JSON.parse(data);
+        
+        if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+          callbacks.onToken(parsed.delta.text);
+        }
+        
+        if (parsed.type === 'message_stop') {
+          callbacks.onComplete();
+          return;
+        }
+      } catch {
+        // Skip invalid JSON
+      }
+    }
+  }
+}
+
+// Google Gemini streaming
+async function streamGoogleChat(
+  model: string,
+  messages: LLMMessage[],
+  callbacks: StreamCallbacks,
+  options: LLMOptions = {},
+  apiKey: string
+): Promise<void> {
+  // Convert messages to Gemini format
+  const contents = messages
+    .filter(m => m.role !== 'system')
+    .map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }],
+    }));
+  
+  const systemInstruction = messages.find(m => m.role === 'system');
+  
+  const body: Record<string, unknown> = {
+    contents,
+    generationConfig: {
+      temperature: options.temperature ?? 0.7,
+      topP: options.topP ?? 0.9,
+      topK: options.topK ?? 40,
+      maxOutputTokens: options.contextLength ?? 4096,
+    },
+  };
+  
+  if (systemInstruction) {
+    body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+  }
+  
+  const response = await fetch(
+    `${CLOUD_URLS.google}/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }
+  );
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Google error: ${response.status} - ${errorText}`);
+  }
+  
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+  
+  const decoder = new TextDecoder();
+  let buffer = '';
+  
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+    
+    for (const line of lines) {
+      if (!line.trim() || !line.startsWith('data: ')) continue;
+      
+      const data = line.replace(/^data: /, '');
+      if (!data) continue;
+      
+      try {
+        const parsed = JSON.parse(data);
+        const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (text) {
+          callbacks.onToken(text);
+        }
+        
+        if (parsed.candidates?.[0]?.finishReason === 'STOP') {
+          callbacks.onComplete();
+          return;
+        }
+      } catch {
+        // Skip invalid JSON
+      }
+    }
+  }
+  
+  callbacks.onComplete();
 }
 
 export async function nonStreamingChat(

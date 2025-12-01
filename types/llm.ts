@@ -1,4 +1,16 @@
-export type LLMProviderType = 'ollama' | 'lmstudio';
+// Local providers (free, private)
+export type LocalProviderType = 'ollama' | 'lmstudio';
+
+// Cloud providers (Pro feature - requires API key)
+export type CloudProviderType = 'openrouter' | 'openai' | 'anthropic' | 'google' | 'xai';
+
+// All provider types
+export type LLMProviderType = LocalProviderType | CloudProviderType;
+
+// Helper to check if provider is cloud-based
+export function isCloudProvider(provider: LLMProviderType): provider is CloudProviderType {
+  return ['openrouter', 'openai', 'anthropic', 'google', 'xai'].includes(provider);
+}
 
 export interface LLMProvider {
   type: LLMProviderType;
@@ -10,6 +22,11 @@ export interface LLMModel {
   id: string;
   name: string;
   provider: LLMProviderType;
+  contextLength?: number;
+  pricing?: {
+    prompt: number;   // per 1M tokens
+    completion: number; // per 1M tokens
+  };
 }
 
 export interface ToolDefinition {
