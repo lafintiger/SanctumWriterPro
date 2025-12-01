@@ -68,6 +68,44 @@ async function checkStatus() {
   return NextResponse.json(status);
 }
 
+// Fetch Perplexica's configured models
+async function getPerplexicaModels(): Promise<{
+  chatModel: { provider: string; model: string } | null;
+  embeddingModel: { provider: string; model: string } | null;
+}> {
+  try {
+    // Try to get config from Perplexica
+    const configResponse = await fetch(`${PERPLEXICA_URL}/api/config`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(5000),
+    });
+    
+    if (configResponse.ok) {
+      const config = await configResponse.json();
+      console.log('Perplexica config:', JSON.stringify(config).slice(0, 500));
+      
+      return {
+        chatModel: config.chatModel || config.chatModelProvider ? {
+          provider: config.chatModelProvider || 'ollama',
+          model: config.chatModel || 'llama3.2:latest',
+        } : null,
+        embeddingModel: config.embeddingModel || config.embeddingModelProvider ? {
+          provider: config.embeddingModelProvider || 'ollama', 
+          model: config.embeddingModel || 'nomic-embed-text:latest',
+        } : null,
+      };
+    }
+  } catch (error) {
+    console.log('Could not fetch Perplexica config:', error);
+  }
+  
+  // Return default models if config fetch fails
+  return {
+    chatModel: { provider: 'ollama', model: 'llama3.2:latest' },
+    embeddingModel: { provider: 'ollama', model: 'nomic-embed-text:latest' },
+  };
+}
+
 async function searchPerplexica(
   query: string,
   focusMode?: string,
@@ -76,14 +114,24 @@ async function searchPerplexica(
   // Perplexica uses Server-Sent Events (SSE) streaming for its API
   // We need to handle the stream and collect the full response
   
-  // Don't specify models - let Perplexica use its own configured defaults
-  // If we need models, Perplexica will use what's set in its config.toml
+  // First, try to get Perplexica's configured models
+  const { chatModel, embeddingModel } = await getPerplexicaModels();
+  
+  // Build request - Perplexica REQUIRES chatModel and embeddingModel
   const requestBody: Record<string, any> = {
     query: query,
     focusMode: focusMode || 'webSearch',
     optimizationMode: optimizationMode || 'balanced',
     history: [],
   };
+  
+  // Add models if we got them
+  if (chatModel) {
+    requestBody.chatModel = chatModel;
+  }
+  if (embeddingModel) {
+    requestBody.embeddingModel = embeddingModel;
+  }
   
   console.log('Perplexica request:', JSON.stringify(requestBody));
   
