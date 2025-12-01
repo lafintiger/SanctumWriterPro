@@ -9,8 +9,10 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
 import { searchKeymap } from '@codemirror/search';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useCouncilStore } from '@/lib/store/useCouncilStore';
 import { debounce } from '@/lib/utils';
 import { Selection } from '@/types';
+import { reviewAnnotationsExtension, updateReviewComments } from '@/lib/editor/reviewAnnotations';
 
 interface EditorProps {
   onEditorReady?: (view: EditorView) => void;
@@ -25,6 +27,8 @@ export function Editor({ onEditorReady }: EditorProps) {
     setCursorPosition,
     showToast,
   } = useAppStore();
+  
+  const { currentSession } = useCouncilStore();
 
   // Expose editor view to parent
   useEffect(() => {
@@ -32,6 +36,15 @@ export function Editor({ onEditorReady }: EditorProps) {
       onEditorReady(editorRef.current.view);
     }
   }, [editorRef.current?.view, onEditorReady]);
+  
+  // Update review annotations when comments change
+  useEffect(() => {
+    if (editorRef.current?.view && currentSession?.comments) {
+      updateReviewComments(editorRef.current.view, currentSession.comments);
+    } else if (editorRef.current?.view) {
+      updateReviewComments(editorRef.current.view, []);
+    }
+  }, [currentSession?.comments]);
 
   // Auto-save with debounce
   const saveDocument = useCallback(
@@ -155,6 +168,7 @@ export function Editor({ onEditorReady }: EditorProps) {
             }
           }),
           EditorView.lineWrapping,
+          ...reviewAnnotationsExtension,
         ]}
         className="flex-1 min-h-0 overflow-auto"
         basicSetup={{

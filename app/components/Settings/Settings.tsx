@@ -12,10 +12,16 @@ import {
   RefreshCw,
   Check,
   ChevronDown,
+  Users,
+  Trash2,
+  Plus,
+  Edit3,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSettingsStore, WRITING_PRESETS, WritingPreset, GPU_PRESETS, getOptimalSettingsForTier } from '@/lib/store/useSettingsStore';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useCouncilStore } from '@/lib/store/useCouncilStore';
+import { Reviewer, DEFAULT_REVIEWERS, ReviewerRole } from '@/types/council';
 import { detectGPU, formatVRAM, getVRAMTierDescription } from '@/lib/hardware/detect';
 
 export function Settings() {
@@ -46,7 +52,7 @@ export function Settings() {
   } = useSettingsStore();
 
   const { provider, model } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware'>('writing');
+  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware' | 'council'>('writing');
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [isDetectingHardware, setIsDetectingHardware] = useState(false);
 
@@ -130,6 +136,7 @@ export function Settings() {
             { id: 'writing', label: 'Writing Style', icon: BookOpen },
             { id: 'model', label: 'Model Settings', icon: Sliders },
             { id: 'hardware', label: 'Hardware', icon: Cpu },
+            { id: 'council', label: 'Council', icon: Users },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -185,6 +192,10 @@ export function Settings() {
               onOptimize={optimizeForWriting}
               maxContextLength={maxContextLength}
             />
+          )}
+
+          {activeTab === 'council' && (
+            <CouncilTab />
           )}
         </div>
       </div>
@@ -689,6 +700,350 @@ function TierItem({
           {tier}
         </span>
         <span className="text-text-secondary ml-2">{description}</span>
+      </div>
+    </div>
+  );
+}
+
+// Council Tab - Configure reviewers
+function CouncilTab() {
+  const {
+    reviewers,
+    addReviewer,
+    updateReviewer,
+    removeReviewer,
+    toggleReviewer,
+    resetToDefaults,
+  } = useCouncilStore();
+  
+  const { availableModels } = useAppStore();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-medium text-text-primary">Council of Writers</h3>
+          <p className="text-sm text-text-secondary mt-1">
+            Configure AI reviewers to analyze your writing
+          </p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-1 px-3 py-1.5 text-sm bg-accent/10 text-accent hover:bg-accent/20 rounded transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Reviewer
+          </button>
+          <button
+            onClick={resetToDefaults}
+            className="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary hover:bg-border rounded transition-colors"
+          >
+            Reset to Defaults
+          </button>
+        </div>
+      </div>
+      
+      {/* Add Reviewer Form */}
+      {showAddForm && (
+        <ReviewerForm
+          onSave={(reviewer) => {
+            addReviewer(reviewer);
+            setShowAddForm(false);
+          }}
+          onCancel={() => setShowAddForm(false)}
+          availableModels={availableModels}
+        />
+      )}
+      
+      {/* Reviewers List */}
+      <div className="space-y-3">
+        {reviewers.map((reviewer) => (
+          <div key={reviewer.id}>
+            {editingId === reviewer.id ? (
+              <ReviewerForm
+                reviewer={reviewer}
+                onSave={(updated) => {
+                  updateReviewer(reviewer.id, updated);
+                  setEditingId(null);
+                }}
+                onCancel={() => setEditingId(null)}
+                availableModels={availableModels}
+              />
+            ) : (
+              <ReviewerCard
+                reviewer={reviewer}
+                onToggle={() => toggleReviewer(reviewer.id)}
+                onEdit={() => setEditingId(reviewer.id)}
+                onDelete={() => removeReviewer(reviewer.id)}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      
+      {reviewers.length === 0 && (
+        <div className="text-center py-8 text-text-secondary">
+          <Users className="w-12 h-12 mx-auto opacity-50 mb-3" />
+          <p>No reviewers configured</p>
+          <button
+            onClick={resetToDefaults}
+            className="mt-2 text-accent hover:underline"
+          >
+            Add default reviewers
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Reviewer Card Component
+interface ReviewerCardProps {
+  reviewer: Reviewer;
+  onToggle: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}
+
+function ReviewerCard({ reviewer, onToggle, onEdit, onDelete }: ReviewerCardProps) {
+  return (
+    <div
+      className={cn(
+        'p-4 rounded-lg border transition-colors',
+        reviewer.enabled
+          ? 'bg-accent/5 border-accent/30'
+          : 'bg-editor-bg border-border'
+      )}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex items-start gap-3">
+          <button
+            onClick={onToggle}
+            className={cn(
+              'mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors',
+              reviewer.enabled
+                ? 'bg-accent border-accent text-white'
+                : 'border-border hover:border-accent'
+            )}
+          >
+            {reviewer.enabled && <Check className="w-3 h-3" />}
+          </button>
+          
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">{reviewer.icon}</span>
+              <span className="font-medium text-text-primary">{reviewer.name}</span>
+              <span
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: reviewer.color }}
+              />
+            </div>
+            <p className="text-sm text-text-secondary mt-1">{reviewer.description}</p>
+            <div className="flex items-center gap-3 mt-2 text-xs text-text-secondary">
+              <span>Model: <code className="bg-sidebar-bg px-1 rounded">{reviewer.model}</code></span>
+              <span>Role: {reviewer.role}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex items-center gap-1">
+          <button
+            onClick={onEdit}
+            className="p-1.5 text-text-secondary hover:text-accent hover:bg-accent/10 rounded transition-colors"
+            title="Edit reviewer"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={onDelete}
+            className="p-1.5 text-text-secondary hover:text-red-400 hover:bg-red-400/10 rounded transition-colors"
+            title="Delete reviewer"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Reviewer Form Component
+interface ReviewerFormProps {
+  reviewer?: Reviewer;
+  onSave: (reviewer: Omit<Reviewer, 'id'>) => void;
+  onCancel: () => void;
+  availableModels: Array<{ id: string; name: string; provider: string }>;
+}
+
+function ReviewerForm({ reviewer, onSave, onCancel, availableModels }: ReviewerFormProps) {
+  const [name, setName] = useState(reviewer?.name || '');
+  const [icon, setIcon] = useState(reviewer?.icon || '📝');
+  const [description, setDescription] = useState(reviewer?.description || '');
+  const [model, setModel] = useState(reviewer?.model || 'qwen3:latest');
+  const [role, setRole] = useState<ReviewerRole>(reviewer?.role || 'custom');
+  const [systemPrompt, setSystemPrompt] = useState(reviewer?.systemPrompt || DEFAULT_REVIEWERS[0].systemPrompt);
+  const [color, setColor] = useState(reviewer?.color || '#3B82F6');
+  const [enabled, setEnabled] = useState(reviewer?.enabled ?? true);
+  
+  const handleSave = () => {
+    if (!name.trim()) return;
+    
+    onSave({
+      name: name.trim(),
+      icon,
+      description: description.trim(),
+      model,
+      role,
+      systemPrompt,
+      color,
+      enabled,
+    });
+  };
+  
+  const roleOptions: { value: ReviewerRole; label: string }[] = [
+    { value: 'fact_checker', label: 'Fact Checker' },
+    { value: 'style_editor', label: 'Style Editor' },
+    { value: 'legal_reviewer', label: 'Legal Reviewer' },
+    { value: 'medical_reviewer', label: 'Medical Reviewer' },
+    { value: 'cultural_sensitivity', label: 'Cultural Sensitivity' },
+    { value: 'technical_accuracy', label: 'Technical Accuracy' },
+    { value: 'seo_optimizer', label: 'SEO Optimizer' },
+    { value: 'accessibility_checker', label: 'Accessibility' },
+    { value: 'custom', label: 'Custom' },
+  ];
+  
+  const iconOptions = ['📚', '✍️', '⚖️', '🏥', '🌐', '🔬', '🔍', '♿', '📝', '🎯', '💡', '🔒', '📊', '🎨'];
+  
+  return (
+    <div className="bg-editor-bg border border-border rounded-lg p-4 space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        {/* Name */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Reviewer name"
+            className="w-full px-3 py-2 bg-sidebar-bg border border-border rounded text-text-primary text-sm focus:border-accent focus:outline-none"
+          />
+        </div>
+        
+        {/* Icon */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Icon</label>
+          <div className="flex flex-wrap gap-1">
+            {iconOptions.map((i) => (
+              <button
+                key={i}
+                onClick={() => setIcon(i)}
+                className={cn(
+                  'w-8 h-8 rounded hover:bg-border transition-colors',
+                  icon === i && 'bg-accent/20 ring-1 ring-accent'
+                )}
+              >
+                {i}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-1">Description</label>
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What does this reviewer do?"
+          className="w-full px-3 py-2 bg-sidebar-bg border border-border rounded text-text-primary text-sm focus:border-accent focus:outline-none"
+        />
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        {/* Model */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Model</label>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full px-3 py-2 bg-sidebar-bg border border-border rounded text-text-primary text-sm focus:border-accent focus:outline-none"
+          >
+            {availableModels.length > 0 ? (
+              availableModels.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))
+            ) : (
+              <>
+                <option value="qwen3:latest">qwen3:latest</option>
+                <option value="llama3:latest">llama3:latest</option>
+                <option value="mistral:latest">mistral:latest</option>
+              </>
+            )}
+          </select>
+        </div>
+        
+        {/* Role */}
+        <div>
+          <label className="block text-sm font-medium text-text-primary mb-1">Role</label>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as ReviewerRole)}
+            className="w-full px-3 py-2 bg-sidebar-bg border border-border rounded text-text-primary text-sm focus:border-accent focus:outline-none"
+          >
+            {roleOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      {/* Color */}
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-1">Highlight Color</label>
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => setColor(e.target.value)}
+          className="w-12 h-8 rounded cursor-pointer"
+        />
+      </div>
+      
+      {/* System Prompt */}
+      <div>
+        <label className="block text-sm font-medium text-text-primary mb-1">System Prompt</label>
+        <textarea
+          value={systemPrompt}
+          onChange={(e) => setSystemPrompt(e.target.value)}
+          rows={6}
+          placeholder="Instructions for the reviewer..."
+          className="w-full px-3 py-2 bg-sidebar-bg border border-border rounded text-text-primary text-sm focus:border-accent focus:outline-none resize-none font-mono"
+        />
+        <p className="text-xs text-text-secondary mt-1">
+          Tip: Include instructions to return feedback as JSON: [{'{'}line, type, text, comment, suggestion{'}'}]
+        </p>
+      </div>
+      
+      {/* Actions */}
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={onCancel}
+          className="px-4 py-2 text-sm text-text-secondary hover:text-text-primary hover:bg-border rounded transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleSave}
+          disabled={!name.trim()}
+          className="px-4 py-2 text-sm bg-accent hover:bg-accent-hover text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {reviewer ? 'Save Changes' : 'Add Reviewer'}
+        </button>
       </div>
     </div>
   );

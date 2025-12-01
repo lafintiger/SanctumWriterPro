@@ -14,6 +14,7 @@ import {
   AlertCircle,
   MessageSquare,
   Filter,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
@@ -39,7 +40,7 @@ export function CouncilPanel() {
     updateCommentStatus,
   } = useCouncilStore();
   
-  const { currentDocument } = useAppStore();
+  const { currentDocument, selection } = useAppStore();
   
   const enabledReviewers = getEnabledReviewers();
   const stats = getCommentStats();
@@ -114,6 +115,7 @@ export function CouncilPanel() {
         <StartReviewButton
           enabledReviewers={enabledReviewers}
           currentDocument={currentDocument}
+          selection={selection}
           isReviewing={isReviewing}
         />
       </div>
@@ -448,14 +450,15 @@ function CommentCard({ comment, onAccept, onReject, onDismiss }: CommentCardProp
 interface StartReviewButtonProps {
   enabledReviewers: ReturnType<typeof useCouncilStore.getState>['reviewers'];
   currentDocument: ReturnType<typeof useAppStore.getState>['currentDocument'];
+  selection: ReturnType<typeof useAppStore.getState>['selection'];
   isReviewing: boolean;
 }
 
-function StartReviewButton({ enabledReviewers, currentDocument, isReviewing }: StartReviewButtonProps) {
+function StartReviewButton({ enabledReviewers, currentDocument, selection, isReviewing }: StartReviewButtonProps) {
   const { startReview, cancelReview } = useCouncilStore();
   const [reviewStatus, setReviewStatus] = useState('');
   
-  const handleStartReview = async () => {
+  const handleStartReview = async (useSelection: boolean) => {
     if (!currentDocument) return;
     
     const reviewerIds = enabledReviewers.map((r) => r.id);
@@ -464,11 +467,17 @@ function StartReviewButton({ enabledReviewers, currentDocument, isReviewing }: S
     // Dynamically import to avoid SSR issues
     const { runReviewPipeline } = await import('@/lib/council/reviewPipeline');
     
+    const selectionData = useSelection && selection ? {
+      text: selection.text,
+      startLine: selection.fromLine,
+      endLine: selection.toLine,
+    } : undefined;
+    
     try {
       await runReviewPipeline(
         currentDocument.content,
         reviewerIds,
-        undefined, // No selection for full document review
+        selectionData,
         (status) => setReviewStatus(status)
       );
     } catch (error) {
@@ -497,21 +506,39 @@ function StartReviewButton({ enabledReviewers, currentDocument, isReviewing }: S
   }
   
   const canReview = enabledReviewers.length > 0 && currentDocument;
+  const hasSelection = selection && selection.text.length > 0;
   
   return (
-    <button
-      onClick={handleStartReview}
-      disabled={!canReview}
-      className={cn(
-        'w-full flex items-center justify-center gap-2 px-4 py-2.5 font-medium rounded-lg transition-colors',
-        canReview
-          ? 'bg-accent hover:bg-accent-hover text-white'
-          : 'bg-border text-text-secondary cursor-not-allowed'
+    <div className="space-y-2">
+      {hasSelection && (
+        <button
+          onClick={() => handleStartReview(true)}
+          disabled={!canReview}
+          className={cn(
+            'w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors',
+            canReview
+              ? 'bg-accent/20 hover:bg-accent/30 text-accent border border-accent/30'
+              : 'bg-border text-text-secondary cursor-not-allowed'
+          )}
+        >
+          <FileText className="w-4 h-4" />
+          Review Selection (Lines {selection.fromLine}-{selection.toLine})
+        </button>
       )}
-    >
-      <Play className="w-4 h-4" />
-      Start Review ({enabledReviewers.length} reviewers)
-    </button>
+      <button
+        onClick={() => handleStartReview(false)}
+        disabled={!canReview}
+        className={cn(
+          'w-full flex items-center justify-center gap-2 px-4 py-2.5 font-medium rounded-lg transition-colors',
+          canReview
+            ? 'bg-accent hover:bg-accent-hover text-white'
+            : 'bg-border text-text-secondary cursor-not-allowed'
+        )}
+      >
+        <Play className="w-4 h-4" />
+        Review Full Document ({enabledReviewers.length} reviewers)
+      </button>
+    </div>
   );
 }
 
