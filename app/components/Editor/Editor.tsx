@@ -10,6 +10,7 @@ import { searchKeymap } from '@codemirror/search';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { useAppStore } from '@/lib/store/useAppStore';
 import { useCouncilStore } from '@/lib/store/useCouncilStore';
+import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { debounce } from '@/lib/utils';
 import { Selection } from '@/types';
 import { reviewAnnotationsExtension, updateReviewComments } from '@/lib/editor/reviewAnnotations';
@@ -29,6 +30,7 @@ export function Editor({ onEditorReady }: EditorProps) {
   } = useAppStore();
   
   const { currentSession } = useCouncilStore();
+  const { workspacePath } = useSettingsStore();
 
   // Expose editor view to parent
   useEffect(() => {
@@ -50,10 +52,11 @@ export function Editor({ onEditorReady }: EditorProps) {
   const saveDocument = useCallback(
     debounce(async (content: string, path: string) => {
       try {
+        const workspace = useSettingsStore.getState().workspacePath;
         const response = await fetch(`/api/files/${path}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify({ content, workspace }),
         });
         
         if (response.ok) {
@@ -112,7 +115,7 @@ export function Editor({ onEditorReady }: EditorProps) {
       const response = await fetch(`/api/files/${currentDocument.path}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: currentDocument.content }),
+        body: JSON.stringify({ content: currentDocument.content, workspace: workspacePath }),
       });
       
       if (response.ok) {
@@ -125,7 +128,7 @@ export function Editor({ onEditorReady }: EditorProps) {
       console.error('Save failed:', error);
       showToast('Failed to save document', 'error');
     }
-  }, [currentDocument, showToast]);
+  }, [currentDocument, showToast, workspacePath]);
 
   // Custom keymap for save
   const customKeymap = keymap.of([

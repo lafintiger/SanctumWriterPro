@@ -1,9 +1,21 @@
 import { NextResponse } from 'next/server';
 import { readdir, stat, mkdir } from 'fs/promises';
-import { join, relative } from 'path';
+import { join, relative, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 
-const WORKSPACE_PATH = process.env.WORKSPACE_PATH || './documents';
+const DEFAULT_WORKSPACE_PATH = process.env.WORKSPACE_PATH || './documents';
+
+function getWorkspacePath(customPath?: string): string {
+  if (customPath) {
+    // If it's an absolute path, use it directly
+    if (isAbsolute(customPath)) {
+      return customPath;
+    }
+    // Otherwise, resolve relative to cwd
+    return join(process.cwd(), customPath);
+  }
+  return join(process.cwd(), DEFAULT_WORKSPACE_PATH);
+}
 
 interface FileNode {
   name: string;
@@ -52,9 +64,11 @@ async function getFileTree(dirPath: string, basePath: string): Promise<FileNode[
   });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const workspacePath = join(process.cwd(), WORKSPACE_PATH);
+    const { searchParams } = new URL(request.url);
+    const customWorkspace = searchParams.get('workspace');
+    const workspacePath = getWorkspacePath(customWorkspace || undefined);
     
     // Create workspace directory if it doesn't exist
     if (!existsSync(workspacePath)) {
@@ -63,7 +77,7 @@ export async function GET() {
 
     const files = await getFileTree(workspacePath, workspacePath);
     
-    return NextResponse.json({ files, workspacePath: WORKSPACE_PATH });
+    return NextResponse.json({ files, workspacePath });
   } catch (error) {
     console.error('Error reading files:', error);
     return NextResponse.json(
@@ -75,7 +89,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { name, parentPath } = await request.json();
+    const { name, parentPath, workspace } = await request.json();
     
     if (!name) {
       return NextResponse.json(
@@ -84,7 +98,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const workspacePath = join(process.cwd(), WORKSPACE_PATH);
+    const workspacePath = getWorkspacePath(workspace);
     const filePath = parentPath 
       ? join(workspacePath, parentPath, name)
       : join(workspacePath, name);

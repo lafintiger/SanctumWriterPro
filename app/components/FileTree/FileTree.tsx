@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/lib/store/useAppStore';
+import { useSettingsStore } from '@/lib/store/useSettingsStore';
 import { FileNode, Document } from '@/types';
 
 interface FileItemProps {
@@ -91,6 +92,7 @@ function FileItem({ node, depth, onSelect, selectedPath }: FileItemProps) {
 
 export function FileTree() {
   const { files, setFiles, currentDocument, openDocument, showToast } = useAppStore();
+  const { workspacePath } = useSettingsStore();
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -98,7 +100,10 @@ export function FileTree() {
   const loadFiles = useCallback(async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/files');
+      const url = workspacePath 
+        ? `/api/files?workspace=${encodeURIComponent(workspacePath)}`
+        : '/api/files';
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         setFiles(data.files);
@@ -109,17 +114,21 @@ export function FileTree() {
     } finally {
       setIsLoading(false);
     }
-  }, [setFiles, showToast]);
+  }, [setFiles, showToast, workspacePath]);
 
+  // Reload files when workspace changes
   useEffect(() => {
     loadFiles();
-  }, [loadFiles]);
+  }, [loadFiles, workspacePath]);
 
   const handleSelectFile = useCallback(async (node: FileNode) => {
     if (node.type === 'directory') return;
 
     try {
-      const response = await fetch(`/api/files/${node.path}`);
+      const url = workspacePath
+        ? `/api/files/${node.path}?workspace=${encodeURIComponent(workspacePath)}`
+        : `/api/files/${node.path}`;
+      const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
         const doc: Document = {
@@ -134,7 +143,7 @@ export function FileTree() {
       console.error('Failed to open file:', error);
       showToast('Failed to open file', 'error');
     }
-  }, [openDocument, showToast]);
+  }, [openDocument, showToast, workspacePath]);
 
   const handleCreateFile = useCallback(async () => {
     if (!newFileName.trim()) {
@@ -148,7 +157,7 @@ export function FileTree() {
       const response = await fetch('/api/files', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: fileName }),
+        body: JSON.stringify({ name: fileName, workspace: workspacePath }),
       });
 
       if (response.ok) {
@@ -174,7 +183,7 @@ export function FileTree() {
 
     setIsCreating(false);
     setNewFileName('');
-  }, [newFileName, loadFiles, openDocument, showToast]);
+  }, [newFileName, loadFiles, openDocument, showToast, workspacePath]);
 
   return (
     <div className="h-full flex flex-col bg-sidebar-bg">

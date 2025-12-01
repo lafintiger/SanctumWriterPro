@@ -1,13 +1,23 @@
 import { NextResponse } from 'next/server';
 import { readFile, writeFile, unlink, rename } from 'fs/promises';
-import { join, dirname, basename } from 'path';
+import { join, dirname, basename, isAbsolute } from 'path';
 import { existsSync } from 'fs';
 
-const WORKSPACE_PATH = process.env.WORKSPACE_PATH || './documents';
+const DEFAULT_WORKSPACE_PATH = process.env.WORKSPACE_PATH || './documents';
 
-function getFullPath(pathSegments: string[]): string {
+function getWorkspacePath(customPath?: string): string {
+  if (customPath) {
+    if (isAbsolute(customPath)) {
+      return customPath;
+    }
+    return join(process.cwd(), customPath);
+  }
+  return join(process.cwd(), DEFAULT_WORKSPACE_PATH);
+}
+
+function getFullPath(pathSegments: string[], workspace?: string): string {
   const relativePath = pathSegments.join('/');
-  return join(process.cwd(), WORKSPACE_PATH, relativePath);
+  return join(getWorkspacePath(workspace), relativePath);
 }
 
 export async function GET(
@@ -15,7 +25,9 @@ export async function GET(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const filePath = getFullPath(params.path);
+    const { searchParams } = new URL(request.url);
+    const workspace = searchParams.get('workspace') || undefined;
+    const filePath = getFullPath(params.path, workspace);
     
     if (!existsSync(filePath)) {
       return NextResponse.json(
@@ -46,8 +58,8 @@ export async function PUT(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const { content } = await request.json();
-    const filePath = getFullPath(params.path);
+    const { content, workspace } = await request.json();
+    const filePath = getFullPath(params.path, workspace);
     
     // Ensure the directory exists
     const { mkdir } = await import('fs/promises');
@@ -73,7 +85,9 @@ export async function DELETE(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const filePath = getFullPath(params.path);
+    const { searchParams } = new URL(request.url);
+    const workspace = searchParams.get('workspace') || undefined;
+    const filePath = getFullPath(params.path, workspace);
     
     if (!existsSync(filePath)) {
       return NextResponse.json(
@@ -102,8 +116,8 @@ export async function PATCH(
   { params }: { params: { path: string[] } }
 ) {
   try {
-    const { newName } = await request.json();
-    const oldPath = getFullPath(params.path);
+    const { newName, workspace } = await request.json();
+    const oldPath = getFullPath(params.path, workspace);
     
     if (!existsSync(oldPath)) {
       return NextResponse.json(

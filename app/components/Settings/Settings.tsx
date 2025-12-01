@@ -18,6 +18,10 @@ import {
   Edit3,
   Server,
   RotateCcw,
+  FolderOpen,
+  Folder,
+  ChevronUp,
+  FileText,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSettingsStore, WRITING_PRESETS, WritingPreset, GPU_PRESETS, getOptimalSettingsForTier, DEFAULT_SERVICE_URLS, ServiceURLs } from '@/lib/store/useSettingsStore';
@@ -54,12 +58,23 @@ export function Settings() {
     autoConfigureForHardware,
     selectGPU,
     optimizeForWriting,
+    workspacePath,
+    setWorkspacePath,
   } = useSettingsStore();
 
   const { provider, model } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware' | 'council' | 'services'>('writing');
+  const [activeTab, setActiveTab] = useState<'writing' | 'model' | 'hardware' | 'council' | 'services' | 'workspace'>('writing');
   const [isLoadingModel, setIsLoadingModel] = useState(false);
   const [isDetectingHardware, setIsDetectingHardware] = useState(false);
+  
+  // Workspace browser state
+  const [browsePath, setBrowsePath] = useState('');
+  const [directories, setDirectories] = useState<Array<{ name: string; path: string }>>([]);
+  const [canGoUp, setCanGoUp] = useState(false);
+  const [parentPath, setParentPath] = useState('');
+  const [workspaceValidation, setWorkspaceValidation] = useState<{ valid: boolean; markdownFiles?: number } | null>(null);
+  const [isBrowsing, setIsBrowsing] = useState(false);
+  const [manualPath, setManualPath] = useState(workspacePath);
 
   // Detect hardware on mount
   useEffect(() => {
@@ -112,6 +127,64 @@ export function Settings() {
     }
   }, [model, provider, autoConfigureForModel]);
 
+  // Workspace browsing functions
+  const browseDirectory = useCallback(async (path?: string) => {
+    setIsBrowsing(true);
+    try {
+      const url = path ? `/api/workspace?path=${encodeURIComponent(path)}` : '/api/workspace';
+      const response = await fetch(url);
+      if (response.ok) {
+        const data = await response.json();
+        setBrowsePath(data.currentPath);
+        setDirectories(data.entries);
+        setCanGoUp(data.canGoUp);
+        setParentPath(data.parentPath);
+      }
+    } catch (error) {
+      console.error('Failed to browse directory:', error);
+    } finally {
+      setIsBrowsing(false);
+    }
+  }, []);
+
+  const validateWorkspace = useCallback(async (path: string) => {
+    try {
+      const response = await fetch('/api/workspace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setWorkspaceValidation(data);
+        return data.valid;
+      }
+    } catch (error) {
+      console.error('Failed to validate workspace:', error);
+    }
+    return false;
+  }, []);
+
+  const selectWorkspace = useCallback(async (path: string) => {
+    const valid = await validateWorkspace(path);
+    if (valid) {
+      setWorkspacePath(path);
+      setManualPath(path);
+    }
+  }, [validateWorkspace, setWorkspacePath]);
+
+  // Initialize workspace browser when tab opens
+  useEffect(() => {
+    if (activeTab === 'workspace' && !browsePath) {
+      browseDirectory();
+    }
+  }, [activeTab, browsePath, browseDirectory]);
+
+  // Update manual path when workspace path changes
+  useEffect(() => {
+    setManualPath(workspacePath);
+  }, [workspacePath]);
+
   if (!showSettings) return null;
 
   return (
@@ -138,6 +211,7 @@ export function Settings() {
         {/* Tabs */}
         <div className="flex border-b border-border overflow-x-auto">
           {[
+            { id: 'workspace', label: 'Workspace', icon: FolderOpen },
             { id: 'writing', label: 'Writing Style', icon: BookOpen },
             { id: 'model', label: 'Model', icon: Sliders },
             { id: 'hardware', label: 'Hardware', icon: Cpu },
@@ -162,6 +236,122 @@ export function Settings() {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[calc(85vh-140px)]">
+          {activeTab === 'workspace' && (
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-base font-semibold text-text-primary mb-4 flex items-center gap-2">
+                  <FolderOpen className="w-5 h-5 text-accent" />
+                  Workspace Folder
+                </h3>
+                <p className="text-sm text-text-secondary mb-4">
+                  Choose the folder where your markdown documents are stored. 
+                  This works great with Obsidian vaults or any folder containing .md files.
+                </p>
+              </div>
+              
+              {/* Current Workspace */}
+              <div className="p-4 bg-editor-bg rounded-lg border border-border">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-text-primary">Current Workspace</span>
+                  {workspaceValidation?.valid && (
+                    <span className="text-xs text-green-500 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      {workspaceValidation.markdownFiles} markdown files
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={manualPath}
+                    onChange={(e) => setManualPath(e.target.value)}
+                    placeholder="Enter folder path..."
+                    className="flex-1 px-3 py-2 bg-sidebar-bg border border-border rounded text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent"
+                  />
+                  <button
+                    onClick={() => selectWorkspace(manualPath)}
+                    disabled={!manualPath || manualPath === workspacePath}
+                    className="px-4 py-2 bg-accent text-white rounded text-sm hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Apply
+                  </button>
+                </div>
+              </div>
+              
+              {/* Folder Browser */}
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 bg-editor-bg border-b border-border">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <Folder className="w-4 h-4 text-accent flex-shrink-0" />
+                    <span className="text-sm text-text-primary truncate">{browsePath || 'Loading...'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => browseDirectory(parentPath)}
+                      disabled={!canGoUp || isBrowsing}
+                      className="p-1.5 hover:bg-border rounded text-text-secondary hover:text-text-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Go up"
+                    >
+                      <ChevronUp className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => browseDirectory(browsePath)}
+                      disabled={isBrowsing}
+                      className="p-1.5 hover:bg-border rounded text-text-secondary hover:text-text-primary"
+                      title="Refresh"
+                    >
+                      <RefreshCw className={cn("w-4 h-4", isBrowsing && "animate-spin")} />
+                    </button>
+                    <button
+                      onClick={() => selectWorkspace(browsePath)}
+                      disabled={!browsePath}
+                      className="px-3 py-1.5 bg-accent text-white rounded text-xs hover:bg-accent/80 disabled:opacity-50"
+                    >
+                      Select This Folder
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="max-h-64 overflow-y-auto">
+                  {directories.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-text-secondary">
+                      {isBrowsing ? 'Loading...' : 'No subfolders found'}
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-border">
+                      {directories.map((dir) => (
+                        <button
+                          key={dir.path}
+                          onClick={() => browseDirectory(dir.path)}
+                          onDoubleClick={() => selectWorkspace(dir.path)}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-border/50 transition-colors"
+                        >
+                          <Folder className="w-4 h-4 text-accent" />
+                          <span className="text-sm text-text-primary">{dir.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Quick Tips */}
+              <div className="p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                <h4 className="text-sm font-medium text-accent mb-2 flex items-center gap-2">
+                  <Info className="w-4 h-4" />
+                  Tips
+                </h4>
+                <ul className="text-xs text-text-secondary space-y-1">
+                  <li>• <strong>Obsidian:</strong> Navigate to your vault folder and select it</li>
+                  <li>• <strong>Click</strong> a folder to navigate into it</li>
+                  <li>• <strong>Double-click</strong> to select and set as workspace</li>
+                  <li>• All .md, .markdown, .mdx, and .txt files will be shown</li>
+                  <li>• Your selection is saved and will persist across sessions</li>
+                </ul>
+              </div>
+            </div>
+          )}
+          
           {activeTab === 'writing' && (
             <WritingStyleTab
               writingPreset={writingPreset}

@@ -240,6 +240,9 @@ interface SettingsState {
   // Service URLs
   serviceURLs: ServiceURLs;
   
+  // Workspace
+  workspacePath: string;
+  
   // Context tracking
   contextUsed: number; // tokens used
   
@@ -258,6 +261,7 @@ interface SettingsState {
   setHardwareInfo: (info: HardwareInfo) => void;
   setServiceURL: (service: keyof ServiceURLs, url: string) => void;
   resetServiceURLs: () => void;
+  setWorkspacePath: (path: string) => void;
   setContextUsed: (used: number) => void;
   toggleSettings: () => void;
   setShowSettings: (show: boolean) => void;
@@ -330,6 +334,8 @@ export const useSettingsStore = create<SettingsState>()(
       
       serviceURLs: { ...DEFAULT_SERVICE_URLS },
       
+      workspacePath: './documents',
+      
       contextUsed: 0,
       showSettings: false,
       
@@ -357,6 +363,7 @@ export const useSettingsStore = create<SettingsState>()(
         serviceURLs: { ...state.serviceURLs, [service]: url },
       })),
       resetServiceURLs: () => set({ serviceURLs: { ...DEFAULT_SERVICE_URLS } }),
+      setWorkspacePath: (workspacePath) => set({ workspacePath }),
       setContextUsed: (contextUsed) => set({ contextUsed }),
       toggleSettings: () => set((state) => ({ showSettings: !state.showSettings })),
       setShowSettings: (showSettings) => set({ showSettings }),
@@ -479,6 +486,7 @@ export const useSettingsStore = create<SettingsState>()(
         contextLength: state.contextLength,
         hardwareInfo: state.hardwareInfo, // Persist hardware selection
         serviceURLs: state.serviceURLs, // Persist service URLs
+        workspacePath: state.workspacePath, // Persist workspace path
       }),
     }
   )
