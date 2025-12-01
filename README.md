@@ -1,94 +1,130 @@
-# SanctumWriter ✍️
+# SanctumWriter Pro ✍️⚡
 
-> Your private sanctuary for writing with AI
+> AI writing companion powered by frontier models
 
-A local-first markdown editor that uses your own LLMs (Ollama/LM Studio) as a collaborative writing companion. Like Cursor for code, but for prose.
+A feature-rich markdown editor with access to the world's best AI models - GPT-4, Claude, Gemini, Grok, and 100+ more. All the power of SanctumWriter, supercharged with cloud AI.
 
-![SanctumWriter](https://img.shields.io/badge/Status-Beta-blue) ![License](https://img.shields.io/badge/License-MIT-green) ![Local](https://img.shields.io/badge/100%25-Local-purple)
+![SanctumWriter Pro](https://img.shields.io/badge/Status-Beta-blue) ![License](https://img.shields.io/badge/License-MIT-green) ![Pro](https://img.shields.io/badge/Version-Pro-purple)
+
+## 🆚 SanctumWriter vs Pro
+
+| Feature | [SanctumWriter](https://github.com/lafintiger/SanctumWriter) | **SanctumWriter Pro** |
+|---------|--------------------------------------------------------------|----------------------|
+| Local Models (Ollama/LM Studio) | ✅ | ✅ |
+| OpenRouter (100+ models) | ❌ | ✅ |
+| OpenAI (GPT-4o, GPT-4) | ❌ | ✅ |
+| Anthropic (Claude 3.5, Opus) | ❌ | ✅ |
+| Google (Gemini Pro, Flash) | ❌ | ✅ |
+| xAI (Grok 3) | ❌ | ✅ |
+| 100% Local/Private | ✅ | Local + Cloud |
+| Cost | Free | Provider fees apply |
+
+**Choose SanctumWriter** if you want 100% privacy and free usage with local models.  
+**Choose SanctumWriter Pro** if you want access to frontier AI models like GPT-4 and Claude.
+
+---
 
 ## ✨ Features
 
+### Core Writing Tools
 - 📝 **Markdown Editor** - Full-featured editor with syntax highlighting (CodeMirror)
-- 🤖 **AI Writing Companion** - Chat with local LLMs to help write and edit
+- 🤖 **AI Writing Companion** - Chat with AI to help write and edit
 - ✨ **Agentic Editing** - AI directly modifies your document (no copy/paste!)
 - 🎯 **Selection-Aware** - Highlight text and ask the AI to rewrite just that section
 - 📁 **File Browser** - Navigate and manage your documents
 - 👁️ **Live Preview** - See rendered markdown as you type
-- 🔒 **100% Local** - All data stays on your machine. Your words, your privacy.
+
+### Pro Cloud Features
+- ⚡ **Frontier Models** - Access GPT-4, Claude, Gemini, Grok instantly
+- 🌐 **OpenRouter Integration** - One API key = 100+ models
+- 🔄 **Seamless Switching** - Switch between local and cloud models anytime
+- 🔑 **Secure Key Storage** - API keys stored locally, never on our servers
+
+### Advanced Features
+- 👥 **Council of Writers** - Multi-model review system
+- 🔍 **Research Integration** - SearXNG search with AI summaries
+- 📚 **RAG Knowledge Base** - Reference documents for context
+- 🧠 **Session Memory** - AI remembers across conversations
+- 📖 **Citations & Bibliography** - Academic citation management
+- 📁 **Multi-Document Projects** - Obsidian-compatible project folders
+- 📤 **Export** - PDF, DOCX, HTML with table of contents
+
+---
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### 1. Clone & Install
 
-You need one of the following running locally:
-
-**Option 1: Ollama** (Recommended)
 ```bash
-# Install from https://ollama.ai
-ollama pull llama3
-ollama serve
+git clone https://github.com/lafintiger/SanctumWriterPro.git
+cd SanctumWriterPro
+npm install
 ```
 
-**Option 2: LM Studio**
-1. Download from https://lmstudio.ai
-2. Load a model
-3. Start the local server (localhost:1234)
-
-### Installation
+### 2. Start the App
 
 ```bash
-# Clone the repo
-git clone https://github.com/lafintiger/SanctumWriter.git
-cd SanctumWriter
-
-# Install dependencies
-npm install
-
-# Start the app
 npm run dev
 ```
 
-Open **http://localhost:3000** in your browser.
+Open **http://localhost:3130** in your browser.
 
-## 📖 Usage
+### 3. Add an API Key
 
-### Basic Editing
-1. Click **+** to create a new document
-2. Write markdown in the editor
-3. Documents auto-save as you type
+1. Go to **Settings** (gear icon) → **API Keys** tab
+2. Add at least one API key:
+   - **OpenRouter** (recommended) - [Get key](https://openrouter.ai/keys) - Access 100+ models
+   - **OpenAI** - [Get key](https://platform.openai.com/api-keys)
+   - **Anthropic** - [Get key](https://console.anthropic.com/settings/keys)
+   - **Google AI** - [Get key](https://aistudio.google.com/apikey)
+   - **xAI** - [Get key](https://console.x.ai/)
 
-### AI Assistance
-1. Type a message in the chat panel
-2. The AI sees your document and any selected text
-3. Ask for help: "Make this more engaging" or "Expand this section"
+### 4. Select a Cloud Model
 
-### Selection-Based Editing
-1. **Highlight text** in the editor
-2. Chat shows "Selection active"
-3. Ask: "Rewrite this" or "Make it more concise"
-4. AI directly modifies just the selected text
+Click the provider dropdown in the header → Select a cloud provider → Choose a model.
 
-## ⌨️ Keyboard Shortcuts
+---
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd + S` | Save document |
-| `Ctrl/Cmd + Z` | Undo |
-| `Ctrl/Cmd + Shift + Z` | Redo |
-| `Ctrl/Cmd + F` | Find in document |
+## 🔑 Recommended: OpenRouter
 
-## 🛠️ AI Tools
+**OpenRouter is the easiest way to get started** - one API key gives you access to:
 
-The AI can execute these document operations:
+- GPT-4o, GPT-4 Turbo
+- Claude 3.5 Sonnet, Claude 3 Opus
+- Llama 3.1 405B
+- Mistral Large
+- Gemini Pro
+- And 100+ more models
 
-| Tool | Description |
-|------|-------------|
-| `replace_selection` | Replace highlighted text |
-| `insert_at_cursor` | Insert text at cursor |
-| `edit_lines` | Replace specific line ranges |
-| `append_to_document` | Add text at end |
-| `search_replace` | Find and replace |
-| `insert_heading` | Add a heading |
+[Get your OpenRouter API key →](https://openrouter.ai/keys)
+
+---
+
+## 💰 Pricing
+
+SanctumWriter Pro itself is **free and open source**. You only pay for the cloud API usage:
+
+| Provider | Approximate Cost |
+|----------|------------------|
+| OpenRouter | Varies by model ($0.10 - $15 per 1M tokens) |
+| OpenAI GPT-4o | ~$5 per 1M tokens |
+| Anthropic Claude 3.5 | ~$3 per 1M tokens |
+| Google Gemini | Often free tier available |
+
+💡 **Tip**: For most writing, a few dollars goes a long way. A typical document edit costs fractions of a cent.
+
+---
+
+## 🔒 Privacy & Security
+
+- **API keys stored locally** in your browser's localStorage
+- **Keys sent directly to providers** - we never see them
+- **No telemetry** - we don't track your usage
+- **Open source** - audit the code yourself
+
+For maximum privacy, use the [free SanctumWriter](https://github.com/lafintiger/SanctumWriter) with local models.
+
+---
 
 ## 🏗️ Tech Stack
 
@@ -96,44 +132,60 @@ The AI can execute these document operations:
 - **Editor**: CodeMirror 6
 - **Styling**: Tailwind CSS
 - **State**: Zustand
-- **LLM**: Ollama / LM Studio (local)
+- **LLM**: Ollama, LM Studio, OpenRouter, OpenAI, Anthropic, Google, xAI
 
-## 🔧 Configuration
+---
 
-Create a `.env.local` file:
+## 📖 Usage
 
-```env
-WORKSPACE_PATH=./documents
-OLLAMA_URL=http://localhost:11434
-LMSTUDIO_URL=http://localhost:1234
-```
+### Basic Writing
+1. Create or open a document
+2. Write markdown in the editor
+3. Use the AI chat to get help
+
+### Using Cloud Models
+1. Add your API key in Settings → API Keys
+2. Select a cloud provider from the dropdown
+3. Choose a model
+4. Chat with frontier AI!
+
+### Selection-Based Editing
+1. **Highlight text** in the editor
+2. Ask: "Rewrite this" or "Make it more concise"
+3. AI directly modifies just the selected text
+
+---
 
 ## 🐛 Troubleshooting
 
-### "Ollama not available"
-```bash
-# Make sure Ollama is running
-ollama serve
-# Check it's accessible
-curl http://localhost:11434/api/tags
-```
+### "API key required"
+Add your API key in **Settings → API Keys** for the provider you want to use.
 
-### Models not showing
-```bash
-# Pull a model first
-ollama pull llama3
-# Or for a smaller model
-ollama pull gemma3:4b
-```
+### "Need API Key" in provider menu
+The provider is available but not configured. Click it anyway, then add your key in Settings.
+
+### Models not loading
+1. Check your API key is correct
+2. Verify the provider's service is operational
+3. Some providers require billing setup before API works
+
+### Want to use local models?
+Local providers (Ollama, LM Studio) still work! They're in the "Local (Free)" section of the provider menu.
+
+---
+
+## 🔗 Related
+
+- **[SanctumWriter](https://github.com/lafintiger/SanctumWriter)** - Free, 100% local version
+- **[Ollama](https://ollama.ai)** - Run models locally
+- **[OpenRouter](https://openrouter.ai)** - Multi-model API gateway
+
+---
 
 ## 📄 License
 
 MIT - See [LICENSE](LICENSE) for details.
 
-## 🙏 Acknowledgments
-
-Built with ❤️ for writers who value their privacy.
-
 ---
 
-**SanctumWriter** - *Your words. Your sanctuary.*
+**SanctumWriter Pro** - *Frontier AI at your fingertips.*
