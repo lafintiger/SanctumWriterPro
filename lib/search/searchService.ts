@@ -216,21 +216,27 @@ export function formatResultsAsMarkdown(
     includeAiSummary?: boolean;
     maxResults?: number;
     includeUrls?: boolean;
+    includeQuery?: boolean;
   }
 ): string {
   const lines: string[] = [];
   const maxResults = options?.maxResults || 100; // Default to all results
   
+  // Add the search query as a header
+  if (options?.includeQuery !== false && response.query) {
+    lines.push(`## Research: ${response.query}\n`);
+  }
+  
   // Add AI summary if available
   if (options?.includeAiSummary && response.aiSummary) {
-    lines.push('## Summary\n');
+    lines.push('### Summary\n');
     lines.push(response.aiSummary);
     lines.push('\n');
   }
   
   // Add sources
   if (response.results.length > 0) {
-    lines.push('## Sources\n');
+    lines.push('### Sources\n');
     
     response.results.slice(0, maxResults).forEach((result, index) => {
       lines.push(`${index + 1}. **${result.title}**`);
